@@ -2,11 +2,16 @@ use rltk::{ RGB, Rltk, Console, Point, Algorithm2D, BaseMap };
 use super::{Rect,Stage};
 use std::cmp::{max, min};
 use specs::prelude::*;
+use std::collections::HashMap;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum TileType {
     Wall, Floor
 }
+
+const MAPWIDTH : i32 = 50;
+const MAPHEIGHT : i32 = 50;
+const MAPCOUNT : usize = (MAPHEIGHT * MAPWIDTH) as usize;
 
 pub struct Map {
     pub tiles : Vec<TileType>,
@@ -14,19 +19,21 @@ pub struct Map {
     pub height : i32,
     pub revealed_tiles : Vec<bool>,
     pub visible_tiles : Vec<bool>,
+    pub rooms: HashMap<(i32,i32),String>,
 }
 
 impl Map {
     pub fn new_map(stage: &Stage) -> Map {
-        let mut map = Map {tiles: vec![TileType::Wall; 80*50],
-            width : 80,
-            height: 50,
-            revealed_tiles : vec![false; 80*50],
-            visible_tiles : vec![false; 80*50],
+        let mut map = Map {tiles: vec![TileType::Wall; MAPCOUNT],
+            width : MAPWIDTH,
+            height: MAPHEIGHT,
+            revealed_tiles: vec![false; MAPCOUNT],
+            visible_tiles: vec![false; MAPCOUNT],
+            rooms: HashMap::new(),
         };
         
-        for new_room in stage.rooms.values() {
-            map.apply_room_to_map(&new_room.dimensions);
+        for (new_code, new_room) in stage.rooms.iter() {
+            map.apply_room_to_map(new_code, &new_room.dimensions);
         }
         for door in stage.doors.iter() {
             let room1 = stage.rooms.get(&door.room1).expect("no room");
@@ -41,11 +48,12 @@ impl Map {
         map
     }
 
-    fn apply_room_to_map(&mut self, room : &Rect) {
+    fn apply_room_to_map(&mut self, code: &String, room : &Rect) {
         for y in room.y1 +1 ..= room.y2 {
             for x in room.x1 + 1 ..= room.x2 {
                 let idx = self.xy_idx(x, y);
                 self.tiles[idx] = TileType::Floor;
+                self.rooms.insert((x,y), code.clone());
             }
         }
     }
@@ -100,7 +108,12 @@ impl Map {
         }
     }
 
+    pub fn is_visible(&self, x: i32, y: i32) -> bool {
+        self.visible_tiles[self.xy_idx(x,y)]
+    }
+
     pub fn draw_map(ecs: &World, ctx : &mut Rltk) {
+        ctx.set_active_console(0);
         let map = ecs.fetch::<Map>();
         let mut y = 0;
         let mut x = 0;
@@ -127,7 +140,7 @@ impl Map {
 
             // Move the coordinates
             x += 1;
-            if x > 79 {
+            if x > map.width-1 {
                 x = 0;
                 y += 1;
             }

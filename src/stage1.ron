@@ -1,4 +1,5 @@
 Stage (
+    name: "Selaion Palace",
     rooms: {
         "throne": Room (
             dimensions: (x1:20,x2:30,y1:5,y2:15),
@@ -8,7 +9,7 @@ Stage (
         "study": Room (
             dimensions: (x1:15,x2:18,y1:5,y2:8),
             name: "The study",
-            description: "A small room, with a table and stool facing the windows. A chest of books is on the side.",
+            description: "A small room, with a table and stool facing the windows.\nA chest of books is on the side.",
         ),
         "bedroom": Room (
             dimensions: (x1:10,x2:13,y1:7,y2:11),
@@ -23,7 +24,7 @@ Stage (
         "kitchen": Room (
             dimensions: (x1:13,x2:18,y1:19,y2:23),
             name: "The kitchen",
-            description: "The kitchen where all meals are prepared. Nice smells make you feel hungry a little.",
+            description: "The kitchen where all meals are prepared.\nNice smells make you feel hungry a little.",
         ),
         "cellar": Room (
             dimensions: (x1:9,x2:12,y1:19,y2:21),
@@ -75,5 +76,12 @@ Stage (
         Door(room1:"gate",room2:"courtyard",width:4),
         Door(room1:"outside",room2:"vegetable",width:2),
         Door(room1:"outside",room2:"village",width:2),
+    ],
+    items: [
+        StageItem(name:"Sharp scissors",position:(16,14)),
+        StageItem(name:"An undecipherable scroll",position:(11,20)),
+    ],
+    weapons: [
+        StageWeapon(name:"Sword",position:(34,23),damage:(1,6)),
     ]
 )
