@@ -2,21 +2,22 @@ extern crate rltk;
 use rltk::{ RGB, Rltk, Console, };
 extern crate specs;
 use specs::prelude::*;
-use super::{Position, Player, Map, Stage, Character, Named, Item, Equipped, Weapon};
+use super::{ItemMap,State, Position, Player, Map, Stage, Character, Named, Item, Equipped, Weapon, RunState};
 
-pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
+pub fn draw_ui(state: &State, ctx : &mut Rltk) {
     ctx.set_active_console(1);
     ctx.cls();
     ctx.draw_box(50, 0, 29, 24, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
 
     ctx.draw_box(0, 25, 79, 4, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
 
-    let y = draw_position(ecs, ctx);
-    draw_player(ecs,ctx);
-    draw_item(ecs,ctx, y);
+    let y = draw_position(state, ctx);
+    draw_player(state,ctx);
+    draw_item(state,ctx, y);
 }
 
-fn draw_position(ecs: &World, ctx : &mut Rltk) -> i32{
+fn draw_position(state: &State, ctx : &mut Rltk) -> i32{
+    let ecs=&state.ecs;
     let positions = ecs.read_storage::<Position>();
     let players = ecs.read_storage::<Player>();
     let map = ecs.fetch::<Map>();
@@ -56,7 +57,8 @@ fn print_multiline(ctx : &mut Rltk, x: i32, y: i32, text: Vec<&String>) -> i32 {
     ry
 }
 
-fn draw_player(ecs: &World, ctx : &mut Rltk){
+fn draw_player(state: &State, ctx : &mut Rltk){
+    let ecs=&state.ecs;
     let characters = ecs.read_storage::<Character>();
     let players = ecs.read_storage::<Player>();
     let mut y = 1;
@@ -78,14 +80,37 @@ fn draw_player(ecs: &World, ctx : &mut Rltk){
     let items = ecs.read_storage::<Item>();
     let weapons = ecs.read_storage::<Weapon>();
     
-    for (named,_equipped,_weapong) in (&nameds,&equippeds,&weapons).join(){
-        ctx.print_color(51, y,RGB::named(rltk::RED), RGB::named(rltk::BLACK), &named.name);
-        y+=1;
-    }
+    if state.runstate==RunState::Dropping {
+        let entities = ecs.entities();
+        let mut itemmap = ecs.fetch_mut::<ItemMap>();
+        itemmap.map.clear();
+        let mut j = 0;
 
-    for (named,_equipped,_item) in (&nameds,&equippeds,&items).join(){
-        ctx.print_color(51, y,RGB::named(rltk::BLUE), RGB::named(rltk::BLACK), &named.name);
-        y+=1;
+        for (entity,named,_equipped,_weapon) in (&entities,&nameds,&equippeds,&weapons).join(){
+            ctx.set(51, y, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), 97+j as u8);
+            ctx.print_color(53, y,RGB::named(rltk::RED), RGB::named(rltk::BLACK), &named.name);
+            itemmap.map.insert(j,entity);
+            j+=1;
+            y+=1;
+        }
+    
+        for (entity,named,_equipped,_item) in (&entities,&nameds,&equippeds,&items).join(){
+            ctx.set(51, y, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), 97+j as u8);
+            ctx.print_color(53, y,RGB::named(rltk::BLUE), RGB::named(rltk::BLACK), &named.name);
+            itemmap.map.insert(j,entity);
+            j+=1;
+            y+=1;
+        }
+    } else {
+        for (named,_equipped,_weapon) in (&nameds,&equippeds,&weapons).join(){
+            ctx.print_color(51, y,RGB::named(rltk::RED), RGB::named(rltk::BLACK), &named.name);
+            y+=1;
+        }
+
+        for (named,_equipped,_item) in (&nameds,&equippeds,&items).join(){
+            ctx.print_color(51, y,RGB::named(rltk::BLUE), RGB::named(rltk::BLACK), &named.name);
+            y+=1;
+        }
     }
 }
 
@@ -95,7 +120,8 @@ fn draw_attribute(ctx : &mut Rltk, name: &str, value: u32, y: i32) -> i32{
     y+1
 }
 
-fn draw_item(ecs: &World, ctx : &mut Rltk, y: i32) {
+fn draw_item(state: &State, ctx : &mut Rltk, y: i32) {
+    let ecs=&state.ecs;
     let positions = ecs.read_storage::<Position>();
     let players = ecs.read_storage::<Player>();
 

@@ -1,6 +1,6 @@
 use rltk::{VirtualKeyCode, Rltk};
 use specs::prelude::*;
-use super::{Position, Player, TileType, Map, State, Viewshed, Named, WantToPickup};
+use super::{WantToDrop,Position, Player, TileType, Map, State, Viewshed, Named, WantToPickup, RunState, ItemMap};
 use std::cmp::{min, max};
 
 fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
@@ -39,30 +39,53 @@ fn pickup_item(ecs: &mut World){
     }
     if let Some(ent) = item {
         let mut want = ecs.write_storage::<WantToPickup>();   
-        want.insert(ent, WantToPickup{item:ent}).expect("Unable to equip item");
+        want.insert(ent, WantToPickup{}).expect("Unable to intent to equip item");
         
     } 
 }
 
-pub fn player_input(gs: &mut State, ctx: &mut Rltk) {
+fn drop_item(ecs: &mut World, ix: i32){
+    let mut itemmap = ecs.fetch_mut::<ItemMap>();
+    if let Some(ent) = itemmap.map.get(&ix) {
+        let mut want = ecs.write_storage::<WantToDrop>();   
+        want.insert(*ent, WantToDrop{}).expect("Unable to intent drop item");
+    }
+    itemmap.map.clear();
+}
+
+pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
-        None => {} // Nothing happened
-        Some(key) => match key {
-            VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
-            VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.ecs),
-            VirtualKeyCode::H => try_move_player(-1, 0, &mut gs.ecs),
-            VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
-            VirtualKeyCode::Numpad6 => try_move_player(1, 0, &mut gs.ecs),
-            VirtualKeyCode::L => try_move_player(1, 0, &mut gs.ecs),
-            VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
-            VirtualKeyCode::Numpad8 => try_move_player(0, -1, &mut gs.ecs),
-            VirtualKeyCode::K => try_move_player(0, -1, &mut gs.ecs),
-            VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
-            VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
-            VirtualKeyCode::J => try_move_player(0, 1, &mut gs.ecs),
-            VirtualKeyCode::G => pickup_item(&mut gs.ecs),
-            _ => {}
+        None => {return waiting_state(gs.runstate)} // Nothing happened
+        Some(key) => match gs.runstate {
+            RunState::Dropping => drop_item(&mut gs.ecs, rltk::letter_to_option(key)),
+            _ => {
+                match key {
+                    VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
+                    VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.ecs),
+                    VirtualKeyCode::H => try_move_player(-1, 0, &mut gs.ecs),
+                    VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
+                    VirtualKeyCode::Numpad6 => try_move_player(1, 0, &mut gs.ecs),
+                    VirtualKeyCode::L => try_move_player(1, 0, &mut gs.ecs),
+                    VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
+                    VirtualKeyCode::Numpad8 => try_move_player(0, -1, &mut gs.ecs),
+                    VirtualKeyCode::K => try_move_player(0, -1, &mut gs.ecs),
+                    VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
+                    VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
+                    VirtualKeyCode::J => try_move_player(0, 1, &mut gs.ecs),
+                    VirtualKeyCode::G => pickup_item(&mut gs.ecs),
+                    VirtualKeyCode::D => {return RunState::Dropping},
+                    _ => {return RunState::Paused},
+                }
+            }
         },
+    }
+    RunState::Running
+}
+
+fn waiting_state (runstate: RunState) -> RunState {
+    match runstate {
+        RunState::Dropping => RunState::Dropping,
+        _ => RunState::Paused,
     }
 }

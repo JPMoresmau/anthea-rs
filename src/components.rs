@@ -1,7 +1,7 @@
 use specs::prelude::*;
 use rltk::{RGB,Point};
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -66,10 +66,20 @@ pub struct Named {
     pub name: String,
 }
 
+
+#[derive(Component, Debug)]
+pub struct Keyed {
+    pub key: String,
+}
+
 #[derive(Component, Debug)]
 pub struct Equipped {}
 
 #[derive(Component, Debug)]
 pub struct WantToPickup {
-    pub item: Entity,
+
+}
+
+#[derive(Component, Debug)]
+pub struct WantToDrop {
 }

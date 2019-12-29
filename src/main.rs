@@ -4,6 +4,8 @@ use specs::prelude::*;
 #[macro_use]
 extern crate specs_derive;
 
+
+use std::collections::HashMap;
 use ron::de::from_str;
 
 mod gui;
@@ -23,17 +25,27 @@ pub use visibility_system::*;
 mod pickup_system;
 pub use pickup_system::*;
 
+#[derive(PartialEq, Copy, Clone)]
+pub enum RunState {
+    Running, Dropping, Paused
+}
+
 pub struct State {
-    ecs: World
+    pub ecs: World,
+    pub runstate : RunState,
 }
 
 impl GameState for State {
     fn tick(&mut self, ctx : &mut Rltk) {
-
         ctx.set_active_console(0);
         ctx.cls();
-        player_input(self, ctx);
-        self.run_systems();
+
+        if self.runstate == RunState::Running {
+            self.run_systems();
+            self.runstate = RunState::Paused;
+        } else {
+            self.runstate = player_input(self, ctx);
+        }
 
         Map::draw_map(&self.ecs, ctx);
 
@@ -46,7 +58,7 @@ impl GameState for State {
                 ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
             }
         }
-        gui::draw_ui(&self.ecs, ctx);
+        gui::draw_ui(&self, ctx);
     }
 }
 
@@ -60,9 +72,9 @@ impl State {
     }
 }
 
-
-
-
+pub struct ItemMap {
+    map: HashMap<i32,Entity>
+}
 
 fn main() {
     let mut context = Rltk::init_simple8x8(80, 60, "Anthea's Quest", "resources");
@@ -72,7 +84,8 @@ fn main() {
     // This actually returns the console number, but it's always going to be 1.
     context.register_console(rltk::SparseConsole::init(80, 30, &context.backend), font);
     let mut gs = State {
-        ecs: World::new()
+        ecs: World::new(),
+        runstate: RunState::Running,
     };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
@@ -82,7 +95,9 @@ fn main() {
     gs.ecs.register::<Item>();
     gs.ecs.register::<Equipped>();
     gs.ecs.register::<Named>();
+    gs.ecs.register::<Keyed>();
     gs.ecs.register::<WantToPickup>();
+    gs.ecs.register::<WantToDrop>();
     gs.ecs.register::<Weapon>();
 
     let ron1 = include_str!("stage1.ron");
@@ -97,6 +112,8 @@ fn main() {
 
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
+
+    gs.ecs.insert(ItemMap{map: HashMap::new()});
 
     gs.ecs
         .create_entity()
@@ -115,12 +132,13 @@ fn main() {
 }
 
 fn build_items(ecs: &mut World,stage: &Stage){
-    for item in stage.items.iter() {
+    for (key,item) in stage.items.iter() {
         ecs
             .create_entity()
             .with(Position { x: item.position.0, y: item.position.1 })
             .with(Item {})
             .with(Named {name: item.name.clone()})
+            .with(Keyed {key: key.clone()})
             .with(Renderable {
                 glyph: rltk::to_cp437('q'),
                 fg: RGB::named(rltk::BLUE),

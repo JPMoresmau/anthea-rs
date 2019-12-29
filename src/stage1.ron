@@ -77,10 +77,10 @@ Stage (
         Door(room1:"outside",room2:"vegetable",width:2),
         Door(room1:"outside",room2:"village",width:2),
     ],
-    items: [
-        StageItem(name:"Sharp scissors",position:(16,14)),
-        StageItem(name:"An undecipherable scroll",position:(11,20)),
-    ],
+    items: {
+        "scissors": StageItem(name:"Sharp scissors",position:(16,14)),
+        "scroll": StageItem(name:"An undecipherable scroll",position:(11,20)),
+    },
     weapons: [
         StageWeapon(name:"Sword",position:(34,23),damage:(1,6)),
     ]
