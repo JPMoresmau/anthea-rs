@@ -78,10 +78,37 @@ Stage (
         Door(room1:"outside",room2:"village",width:2),
     ],
     items: {
-        "scissors": StageItem(name:"Sharp scissors",position:(16,14)),
-        "scroll": StageItem(name:"An undecipherable scroll",position:(11,20)),
+        "scissors": (name:"Sharp scissors",position:(16,14)),
+        "scroll": (name:"An undecipherable scroll",position:(11,20)),
     },
     weapons: [
-        StageWeapon(name:"Sword",position:(34,23),damage:(1,6)),
-    ]
+        (name:"Sword",position:(34,23),damage:(1,6)),
+    ],
+    npcs: {
+        "Peleus": (name:"Peleus, your brother",position:(26,6),
+            interactions: [
+                ( 
+                    conditions: [],
+                    text:"I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.",
+                    actions:[
+                        SetFlag("main","PeleusForbidden"),
+                        AddDiary("main","Peleus forbids me to leave. He'll see!"),
+                        ]
+                ),
+                ( 
+                    conditions:[IfFlag(("main","PeleusForbidden"))],
+                    text:"Once again, I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.\nDon't insist!",
+                    actions:[],
+                ),
+                ( 
+                    conditions:[IfFlag(("main","hairCut"))],
+                    text:"I see you're determined enough get rid of the hair you were so proud of.\nAllright, I will give orders that you're allowed to leave.",
+                    actions:[
+                        SetFlag("main","allowedToLeave"),
+                        AddDiary("main","Peleus has allowed me to leave on my quest for Father!"),
+                    ]
+                ),
+            ]
+        ),
+    }
 )

@@ -10,6 +10,7 @@ pub struct Stage {
     pub doors: Vec<Door>,
     pub items: HashMap<String,StageItem>,
     pub weapons: Vec<StageWeapon>,
+    pub npcs: HashMap<String,StageNPC>
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,33 +41,29 @@ pub struct StageWeapon {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Interaction {
-    conditions: Vec<Condition>,
-    text: String,
-    actions: Vec<Action>,
+pub struct StageNPC {
+    pub name: String,
+    pub position: (i32, i32),
+    pub interactions: Vec<Interaction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
+pub struct Interaction {
+    pub conditions: Vec<Condition>,
+    pub text: String,
+    pub actions: Vec<Action>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub enum Condition {
-    IfFlag(Flag),
+    IfFlag((String,String)),
     IfItem(String),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub enum Action {
-    SetFlag(Flag),
-    AddDiary(),
+    SetFlag(String,String),
+    AddDiary(String,String),
     UseItem(String),
 }
 
-#[derive(Debug, Deserialize)]
-pub struct DiaryEntry {
-    pub quest: String,
-    pub text: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Flag {
-    pub quest: String,
-    pub flag: String,
-}

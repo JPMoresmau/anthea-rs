@@ -5,7 +5,7 @@ use specs::prelude::*;
 extern crate specs_derive;
 
 
-use std::collections::HashMap;
+use std::collections::{HashMap,HashSet};
 use ron::de::from_str;
 
 mod gui;
@@ -24,6 +24,8 @@ mod visibility_system;
 pub use visibility_system::*;
 mod pickup_system;
 pub use pickup_system::*;
+mod interact_system;
+pub use interact_system::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
@@ -68,12 +70,18 @@ impl State {
         vis.run_now(&self.ecs);
         let mut pick = PickupSystem{};
         pick.run_now(&self.ecs);
+        let mut int = InteractSystem{};
+        int.run_now(&self.ecs);
         self.ecs.maintain();
     }
 }
 
 pub struct ItemMap {
-    map: HashMap<i32,Entity>
+    map: HashMap<i32,Entity>,
+}
+
+pub struct Flags {
+    set: HashSet<(String,String)>,
 }
 
 fn main() {
@@ -99,6 +107,8 @@ fn main() {
     gs.ecs.register::<WantToPickup>();
     gs.ecs.register::<WantToDrop>();
     gs.ecs.register::<Weapon>();
+    gs.ecs.register::<NPC>();
+    gs.ecs.register::<Interact>();
 
     let ron1 = include_str!("stage1.ron");
     let stage = match from_str(ron1) {
@@ -109,11 +119,13 @@ fn main() {
 
     let (player_x, player_y) = stage.rooms[&stage.start].dimensions.center();
     build_items(&mut gs.ecs,&stage);
+    build_npcs(&mut gs.ecs,&stage);
 
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
 
     gs.ecs.insert(ItemMap{map: HashMap::new()});
+    gs.ecs.insert(Flags{set: HashSet::new()});
 
     gs.ecs
         .create_entity()
@@ -161,3 +173,20 @@ fn build_items(ecs: &mut World,stage: &Stage){
     }
 }
 
+fn build_npcs(ecs: &mut World,stage: &Stage){
+    for (key,item) in stage.npcs.iter() {
+        ecs
+            .create_entity()
+            .with(Position { x: item.position.0, y: item.position.1 })
+            .with(Named {name: item.name.clone()})
+            .with(Keyed {key: key.clone()})
+            .with(NPC{})
+            .with(Renderable {
+                glyph: rltk::to_cp437('c'),
+                fg: RGB::named(rltk::GREEN),
+                bg: RGB::named(rltk::BLACK),
+            })
+            .build();
+    }
+    
+}

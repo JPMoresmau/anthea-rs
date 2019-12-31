@@ -1,5 +1,6 @@
 use specs::prelude::*;
 use rltk::{RGB,Point};
+use super::{Interaction};
 
 #[derive(Component, Debug, Clone)]
 pub struct Position {
@@ -82,4 +83,14 @@ pub struct WantToPickup {
 
 #[derive(Component, Debug)]
 pub struct WantToDrop {
+}
+
+
+#[derive(Component, Debug)]
+pub struct NPC {
+}
+
+#[derive(Component, Debug)]
+pub struct Interact {
+    pub interaction: Interaction,
 }
