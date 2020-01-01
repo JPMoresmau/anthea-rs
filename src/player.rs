@@ -1,6 +1,6 @@
 use super::{
     ItemMap, Map, Named, Player, Position, RunState, Stage, State, TileType, Viewshed, WantToDrop,
-    WantToPickup, Interaction, Condition, Flags, Keyed, Equipped, Item, NPC, Interact
+    WantToPickup, Interaction, Condition, Flags, Keyed, Equipped, Item, NPC, Interact, PlayerView, Journal
 };
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
@@ -16,7 +16,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
 
     for (_player, pos, viewshed) in (&mut players, &mut positions, &mut viewsheds).join() {
         let destination_idx = map.xy_idx(pos.x + delta_x, pos.y + delta_y);
-        if map.tiles[destination_idx] != TileType::Wall {
+        if map.tiles[destination_idx].tile_type != TileType::Wall {
             pos.x = min(map.width - 1, max(0, pos.x + delta_x));
             pos.y = min(map.height - 1, max(0, pos.y + delta_y));
             new_pos=Option::Some((pos.x,pos.y));
@@ -29,15 +29,17 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
         let npcs = ecs.read_storage::<NPC>();
         let keys = ecs.read_storage::<Keyed>();
         let mut interacts = ecs.write_storage::<Interact>();
-        let ents = ecs.entities();
-
-        for (npos, _npc, key, ent) in (&positions, &npcs, &keys, &ents).join() {
-            if x == npos.x && y == npos.y {
-                if let Some(i) = get_interaction(ecs,&key.key) {
-                    interacts.insert(ent, Interact{interaction: i,}).expect("cannot add interaction");
+        let map = ecs.fetch::<Map>();
+        for ent in map.tile(x,y).content.iter() {
+            if npcs.contains(*ent) {
+                if let Some(key) = keys.get(*ent){
+                    if let Some(i) = get_interaction(ecs,&key.key) {
+                        interacts.insert(*ent, Interact{interaction: i,}).expect("cannot add interaction");
+                    }
                 }
             }
         }
+
     }
 }
 
@@ -75,6 +77,33 @@ fn drop_item(ecs: &mut World, ix: i32) {
     itemmap.map.clear();
 }
 
+fn set_player_view(gs: &mut State, player_view: PlayerView){
+    gs.player_view=player_view;
+}
+
+enum JournalMove {
+    Previous, Next, Last,
+}
+
+fn set_journal_entry(gs: &mut State, jmove: JournalMove){
+    let mut j = gs.ecs.fetch_mut::<Journal>();
+    match jmove {
+        JournalMove::Previous => {
+            if j.current>0 {
+                j.current -= 1;
+            }
+        },
+        JournalMove::Next => {
+            if j.current< j.entries.len()-1 {
+                j.current += 1;
+            }
+        },
+        JournalMove::Last => {
+            j.current = j.entries.len()-1;
+        },
+    }
+}
+
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
@@ -84,18 +113,23 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
             _ => match key {
                 VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
                 VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.ecs),
-                VirtualKeyCode::H => try_move_player(-1, 0, &mut gs.ecs),
                 VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
                 VirtualKeyCode::Numpad6 => try_move_player(1, 0, &mut gs.ecs),
-                VirtualKeyCode::L => try_move_player(1, 0, &mut gs.ecs),
                 VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
                 VirtualKeyCode::Numpad8 => try_move_player(0, -1, &mut gs.ecs),
-                VirtualKeyCode::K => try_move_player(0, -1, &mut gs.ecs),
                 VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
                 VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
-                VirtualKeyCode::J => try_move_player(0, 1, &mut gs.ecs),
+                VirtualKeyCode::J => set_player_view(gs, PlayerView::Diary),
+                VirtualKeyCode::C => set_player_view(gs, PlayerView::Characteristics),
+                VirtualKeyCode::I => set_player_view(gs, PlayerView::Inventory),
+                VirtualKeyCode::M => set_player_view(gs, PlayerView::Spells),
+                VirtualKeyCode::H => set_player_view(gs, PlayerView::Help),
+                VirtualKeyCode::F1 => set_player_view(gs, PlayerView::Help),
                 VirtualKeyCode::G => pickup_item(&mut gs.ecs),
                 VirtualKeyCode::D => return RunState::Dropping,
+                VirtualKeyCode::P => set_journal_entry(gs, JournalMove::Previous),
+                VirtualKeyCode::N => set_journal_entry(gs, JournalMove::Next),
+                VirtualKeyCode::L => set_journal_entry(gs, JournalMove::Last),
                 _ => return RunState::Paused,
             },
         },

@@ -10,7 +10,8 @@ pub struct Stage {
     pub doors: Vec<Door>,
     pub items: HashMap<String,StageItem>,
     pub weapons: Vec<StageWeapon>,
-    pub npcs: HashMap<String,StageNPC>
+    pub npcs: HashMap<String,StageNPC>,
+    pub quests: HashMap<String,String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -29,12 +29,18 @@ pub use interact_system::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
-    Running, Dropping, Paused
+    Running, Dropping, Paused,
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum PlayerView {
+    Characteristics, Inventory, Spells, Diary, Help, 
 }
 
 pub struct State {
     pub ecs: World,
     pub runstate : RunState,
+    pub player_view: PlayerView,
 }
 
 impl GameState for State {
@@ -77,11 +83,16 @@ impl State {
 }
 
 pub struct ItemMap {
-    map: HashMap<i32,Entity>,
+    pub map: HashMap<i32,Entity>,
 }
 
 pub struct Flags {
-    set: HashSet<(String,String)>,
+    pub set: HashSet<(String,String)>,
+}
+
+pub struct Journal {
+    pub entries: Vec<(String,String)>,
+    pub current: usize,
 }
 
 fn main() {
@@ -94,6 +105,7 @@ fn main() {
     let mut gs = State {
         ecs: World::new(),
         runstate: RunState::Running,
+        player_view: PlayerView::Characteristics,
     };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
@@ -115,17 +127,20 @@ fn main() {
         Ok(x) => x,
         Err(e) => panic!("Failed to load stage: {}",e),
     };
-    let map = Map::new_map(&stage);
+    let mut map = Map::new_map(&stage);
 
     let (player_x, player_y) = stage.rooms[&stage.start].dimensions.center();
-    build_items(&mut gs.ecs,&stage);
-    build_npcs(&mut gs.ecs,&stage);
+    build_items(&mut gs.ecs,&stage,&mut map);
+    build_npcs(&mut gs.ecs,&stage,&mut map);
 
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
 
     gs.ecs.insert(ItemMap{map: HashMap::new()});
     gs.ecs.insert(Flags{set: HashSet::new()});
+    let mut j = Journal{entries: Vec::new(), current: 0};
+    j.entries.push(("main".to_owned(),"I have decided it, and nothing will alter my resolve. I will set up in search for Father. Peleus cannot stop me.".to_owned()));
+    gs.ecs.insert(j);
 
     gs.ecs
         .create_entity()
@@ -143,9 +158,9 @@ fn main() {
     rltk::main_loop(context, gs);
 }
 
-fn build_items(ecs: &mut World,stage: &Stage){
+fn build_items(ecs: &mut World,stage: &Stage, map: &mut Map){
     for (key,item) in stage.items.iter() {
-        ecs
+        let ent = ecs
             .create_entity()
             .with(Position { x: item.position.0, y: item.position.1 })
             .with(Item {})
@@ -157,9 +172,10 @@ fn build_items(ecs: &mut World,stage: &Stage){
                 bg: RGB::named(rltk::BLACK),
             })
             .build();
+            map.mut_tile(item.position.0,item.position.1).content.insert(ent);
     }
     for item in stage.weapons.iter() {
-        ecs
+        let ent=ecs
             .create_entity()
             .with(Position { x: item.position.0, y: item.position.1 })
             .with(Weapon {damage_min:item.damage.0, damage_max:item.damage.1})
@@ -170,12 +186,14 @@ fn build_items(ecs: &mut World,stage: &Stage){
                 bg: RGB::named(rltk::BLACK),
             })
             .build();
+            map.mut_tile(item.position.0,item.position.1).content.insert(ent);
     }
 }
 
-fn build_npcs(ecs: &mut World,stage: &Stage){
+fn build_npcs(ecs: &mut World,stage: &Stage, map: &mut Map){
+    
     for (key,item) in stage.npcs.iter() {
-        ecs
+        let ent = ecs
             .create_entity()
             .with(Position { x: item.position.0, y: item.position.1 })
             .with(Named {name: item.name.clone()})
@@ -187,6 +205,7 @@ fn build_npcs(ecs: &mut World,stage: &Stage){
                 bg: RGB::named(rltk::BLACK),
             })
             .build();
+        map.mut_tile(item.position.0,item.position.1).content.insert(ent);
     }
     
 }

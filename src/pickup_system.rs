@@ -1,6 +1,6 @@
 extern crate specs;
 use specs::prelude::*;
-use super::{WantToPickup,Position,Equipped,WantToDrop,Player};
+use super::{WantToPickup,Position,Equipped,WantToDrop,Player,Map};
 
 pub struct PickupSystem {}
 
@@ -10,23 +10,30 @@ impl<'a> System<'a> for PickupSystem {
                         WriteStorage<'a, Position>,
                         WriteStorage<'a, Equipped>,
                         ReadStorage<'a, Player>,
+                        WriteExpect<'a, Map>,
                         Entities<'a>,);
 
+    
     fn run(&mut self, data : Self::SystemData) {
-        let (mut pickups, mut drops, mut positions, mut equipped, players,entities) = data;
-        for (_pickup,entity) in (&pickups,&entities).join(){
-            positions.remove(entity);
-            equipped.insert(entity, Equipped{}).expect("Cannot equip item");
-        }
-        pickups.clear();
-        let mut ppos = Option::None;
+        let (mut pickups, mut drops, mut positions, mut equipped, players,mut map, entities) = data;
+        let mut opos=None;
         for (_player,pos) in (&players,&positions).join(){
-            ppos=Option::Some(pos.clone());
+            opos=Some((pos.x,pos.y));
         }
+        if let Some((x,y)) = opos {
+            for (_pickup,entity) in (&pickups,&entities).join(){
+                positions.remove(entity);
+                equipped.insert(entity, Equipped{}).expect("Cannot equip item");
+                map.mut_tile(x,y).content.remove(&entity);
+                
+            }
+            pickups.clear();
 
-        for (_drop,entity) in (&drops,&entities).join(){
-            equipped.remove(entity);
-            positions.insert(entity, ppos.clone().expect("no player position")).expect("Cannot drop item");
+            for (_drop,entity) in (&drops,&entities).join(){
+                equipped.remove(entity);
+                positions.insert(entity, Position{x:x,y:y}).expect("Cannot drop item");
+                map.mut_tile(x,y).content.insert(entity);
+            }
+            drops.clear();
         }
-        drops.clear();
     }}

@@ -2,9 +2,9 @@ use rltk::{ RGB, Rltk, Console, Point, Algorithm2D, BaseMap };
 use super::{Rect,Stage};
 use std::cmp::{max, min};
 use specs::prelude::*;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug )]
 pub enum TileType {
     Wall, Floor
 }
@@ -13,23 +13,41 @@ const MAPWIDTH : i32 = 50;
 const MAPHEIGHT : i32 = 50;
 const MAPCOUNT : usize = (MAPHEIGHT * MAPWIDTH) as usize;
 
+#[derive(Clone, Debug)]
+pub struct Tile {
+    pub tile_type: TileType,
+    pub revealed: bool,
+    pub visible: bool,
+    pub room: Option<String>,
+    pub content: HashSet<Entity>,
+}
+
+impl Tile {
+    pub fn new(ttype: TileType)-> Self {
+        Tile {
+            tile_type: ttype,
+            revealed: false,
+            visible: false,
+            room: None,
+            content: HashSet::new(),
+        }
+    }
+}
+
 pub struct Map {
-    pub tiles : Vec<TileType>,
+    pub tiles : Vec<Tile>,
     pub width : i32,
     pub height : i32,
-    pub revealed_tiles : Vec<bool>,
-    pub visible_tiles : Vec<bool>,
-    pub rooms: HashMap<(i32,i32),String>,
 }
+
+
+
 
 impl Map {
     pub fn new_map(stage: &Stage) -> Map {
-        let mut map = Map {tiles: vec![TileType::Wall; MAPCOUNT],
+        let mut map = Map {tiles: vec![Tile::new(TileType::Wall); MAPCOUNT],
             width : MAPWIDTH,
             height: MAPHEIGHT,
-            revealed_tiles: vec![false; MAPCOUNT],
-            visible_tiles: vec![false; MAPCOUNT],
-            rooms: HashMap::new(),
         };
         
         for (new_code, new_room) in stage.rooms.iter() {
@@ -52,10 +70,19 @@ impl Map {
         for y in room.y1 +1 ..= room.y2 {
             for x in room.x1 + 1 ..= room.x2 {
                 let idx = self.xy_idx(x, y);
-                self.tiles[idx] = TileType::Floor;
-                self.rooms.insert((x,y), code.clone());
+                self.tiles[idx].tile_type = TileType::Floor;
+                self.tiles[idx].room = Some(code.clone());
             }
         }
+    }
+
+    pub fn tile(&self, x: i32, y: i32) -> &Tile {
+        &self.tiles[self.xy_idx(x,y)]
+    }
+
+    pub fn mut_tile(&mut self, x: i32, y: i32) -> &mut Tile {
+        let idx = self.xy_idx(x,y);
+        &mut self.tiles[idx]
     }
 
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
@@ -79,7 +106,7 @@ impl Map {
             for x in min(r1.x1,r2.x1)+1 .. max(r1.x2,r2.x2) {
                 let idx = self.xy_idx(x, y);
                 if idx < self.tiles.len() {
-                    self.tiles[idx as usize] = TileType::Floor;
+                    self.tiles[idx as usize].tile_type = TileType::Floor;
                 }
             }
         }
@@ -102,14 +129,14 @@ impl Map {
             for y in min(r1.y1,r2.y1)+1 .. max(r1.y2,r2.y2) {
                 let idx = self.xy_idx(x, y);
                 if idx < self.tiles.len() {
-                    self.tiles[idx as usize] = TileType::Floor;
+                    self.tiles[idx as usize].tile_type = TileType::Floor;
                 }
             }
         }
     }
 
     pub fn is_visible(&self, x: i32, y: i32) -> bool {
-        self.visible_tiles[self.xy_idx(x,y)]
+        self.tiles[self.xy_idx(x,y)].visible
     }
 
     pub fn draw_map(ecs: &World, ctx : &mut Rltk) {
@@ -117,12 +144,12 @@ impl Map {
         let map = ecs.fetch::<Map>();
         let mut y = 0;
         let mut x = 0;
-        for (idx,tile) in map.tiles.iter().enumerate() {
+        for tile in map.tiles.iter() {
             // Render a tile depending upon the tile type
-            if map.revealed_tiles[idx] {
+            if tile.revealed {
                 let glyph;
                 let mut fg;
-                match tile {
+                match tile.tile_type {
                     TileType::Floor => {
                         glyph = rltk::to_cp437('.');
                         fg = RGB::from_f32(0.0, 0.5, 0.5);
@@ -132,7 +159,7 @@ impl Map {
                         fg = RGB::from_f32(0., 1.0, 0.);
                     }
                 }
-                if !map.visible_tiles[idx] { 
+                if !tile.visible { 
                     fg = fg.to_greyscale()
                 }
                 ctx.set(x, y, fg, RGB::from_f32(0., 0., 0.), glyph);
@@ -164,7 +191,7 @@ impl Algorithm2D for Map {
 
 impl BaseMap for Map {
     fn is_opaque(&self, idx:i32) -> bool {
-        self.tiles[idx as usize] == TileType::Wall
+        self.tiles[idx as usize].tile_type == TileType::Wall
     }
 
     fn get_available_exits(&self, _idx:i32) -> Vec<(i32, f32)> {
