@@ -91,21 +91,16 @@ Stage (
     npcs: {
         "Peleus": (name:"Peleus, your brother",position:(26,6),
             interactions: [
-                ( 
-                    conditions: [],
-                    text:"I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.",
+                (   text:"I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.",
                     actions:[
                         SetFlag("main","PeleusForbidden"),
                         AddDiary("main","Peleus forbids me to leave. He'll see!"),
                         ]
                 ),
-                ( 
-                    conditions:[IfFlag(("main","PeleusForbidden"))],
+                (   conditions:[IfFlag(("main","PeleusForbidden"))],
                     text:"Once again, I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.\nDon't insist!",
-                    actions:[],
                 ),
-                ( 
-                    conditions:[IfFlag(("main","hairCut"))],
+                (   conditions:[IfFlag(("main","hairCut"))],
                     text:"I see you're determined enough get rid of the hair you were so proud of.\nAllright, I will give orders that you're allowed to leave.",
                     actions:[
                         SetFlag("main","allowedToLeave"),
@@ -114,5 +109,31 @@ Stage (
                 ),
             ]
         ),
+        "Cretien": (name: "Cretien, your old teacher",position:(16,7),
+             interactions: [
+                 (text:"I'm always on the lookout for new knowledge!"),
+                 (conditions:[IfItem("scroll"),],
+                    text:"Ooohh, this scroll is a magic spell! Let me see if I can teach you the incantation...",
+                    actions:[
+                        UseItem("scroll"),
+                        LearnSpell("fear",1),
+                    ],
+                 ),
+
+             ]
+        ),
+        "Nerita": (name: "Nerita, your maid", position:(12,10),
+            interactions: [
+                (text:"You'll always be a little girl to me. Let me comb your hair!"),
+                (conditions:[IfItem("scissors")],text:"You really want me to cut your hair with these scissors?",
+                    interaction_type: Question,
+                    actions:[SetFlag("main","hairCut"),UseItem("scissors"),RaiseXP(2),UpdateCharacter("charisma",2),
+                        AddDiary("main","Nerita cut my hair so I don't look too much like a girl now. I think it suits me.")]),
+                (conditions:[IfFlag(("main","hairCut"))], text:"You look like a boy now! A pretty boy!"),
+            ],
+        ),
+    },
+    spells: {
+        "fear":(name:"Fear", description:"Causes ennemies to flee in panic"),
     }
 )

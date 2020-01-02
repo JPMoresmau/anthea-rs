@@ -1,5 +1,6 @@
 use specs::prelude::*;
 use rltk::{RGB,Point};
+use std::collections::BTreeSet;
 use super::{Interaction};
 
 #[derive(Component, Debug, Clone)]
@@ -94,3 +95,15 @@ pub struct NPC {
 pub struct Interact {
     pub interaction: Interaction,
 }
+
+#[derive(Component, Debug)]
+pub struct WantToInteract {
+    pub interaction: Interaction,
+}
+
+
+#[derive(Component, Debug)]
+pub struct Wizard {
+    pub spells: BTreeSet<String>,
+}
+

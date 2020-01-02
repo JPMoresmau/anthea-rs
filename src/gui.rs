@@ -3,7 +3,7 @@ use rltk::{Console, Rltk, RGB};
 extern crate specs;
 use super::{
     Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State,
-    Weapon, Interact, PlayerView, Journal
+    Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource
 };
 use specs::prelude::*;
 
@@ -90,9 +90,10 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
     let ecs = &state.ecs;
     let characters = ecs.read_storage::<Character>();
     let players = ecs.read_storage::<Player>();
+    let stage = ecs.fetch::<Stage>();
     let mut y = 0;
-
-    match state.player_view {
+    let pr = ecs.fetch::<PlayerResource>();
+    match pr.player_view {
         PlayerView::Characteristics => {
             ctx.print(51, y, "Character");
             y+=1;
@@ -103,7 +104,7 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
                 y = draw_attribute(ctx, "Intelligence:", ch.intelligence, y);
                 y = draw_attribute(ctx, "Charisma:", ch.charisma, y);
                 y = draw_attribute(ctx, "Level:", ch.level, y);
-                y = draw_attribute(ctx, "XP:", ch.xp, y);
+                y = draw_attribute(ctx, "Experience:", ch.xp, y);
                 y = draw_attribute(ctx, "Life:", ch.life, y);
             }
         },
@@ -189,17 +190,31 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
             ctx.print(51, y, "Journal");
             y+=1;
             let j = ecs.fetch::<Journal>();
-            let (quest,entry)=&j.entries[j.current];
-            let stage = ecs.fetch::<Stage>();
+            let idx = j.current;
+            let (quest,entry)=&j.entries[idx];
             let quest_name = stage.quests.get(quest).expect(&format!("Cannot get quest name for {}", quest));
+            if idx>0{
+                ctx.print(51,y,"(P)revious");
+                y+=1;
+            }
             print_multiline_color(ctx, 51, &mut y, RGB::named(rltk::BLUE), 28, vec!(&quest_name));
-            print_multiline(ctx, 51, &mut y, 28, vec!(entry,&format!("{}/{}",j.current+1,j.entries.len())));
-
+            print_multiline(ctx, 51, &mut y, 28, vec!(entry,&format!("{}/{}",idx+1,j.entries.len())));
+            if idx<j.entries.len()-1 {
+                ctx.print(51,y,"(N)ext");
+            }
             
         },
         PlayerView::Spells => {
             ctx.print(51, y, "Magic Spells");
             y+=1;
+            let wizards = ecs.read_storage::<Wizard>();
+            for (_player,wizard) in (&players,&wizards).join(){
+                for spell in wizard.spells.iter() {
+                    let spell_struct=stage.spells.get(spell).expect(&format!("no spell {}",spell));
+                    let spell_desc=format!("{} ({})",spell_struct.name,spell_struct.description);
+                    print_multiline(ctx, 51, &mut y, 28, vec!(&spell_desc));
+                }
+            }
         },
         PlayerView::Help => {
             print_multiline(ctx, 51, &mut y, 28, vec!(
@@ -240,13 +255,14 @@ fn draw_item(state: &State, ctx: &mut Rltk, y: &mut i32) {
     for (ppos, _player) in (&positions, &players).join() {
         for ent in map.tile(ppos.x,ppos.y).content.iter() {
             if let Some(name) = named.get(*ent) {
+                let full_text=format!("{} (g to pick up)",name.name);
                 if items.contains(*ent) { 
                     ctx.print_color(
                         1,
                         *y,
                         RGB::named(rltk::BLUE),
                         RGB::named(rltk::BLACK),
-                        &name.name,
+                        &full_text,
                     );
                     *y+=1;
                 } else if weapons.contains(*ent){
@@ -255,7 +271,7 @@ fn draw_item(state: &State, ctx: &mut Rltk, y: &mut i32) {
                         *y,
                         RGB::named(rltk::RED),
                         RGB::named(rltk::BLACK),
-                        &name.name,
+                        &full_text,
                     );
                     *y+=1;
                 }
@@ -272,6 +288,7 @@ fn draw_npc(state: &State, ctx: &mut Rltk, y: &mut i32) {
 
     let named = ecs.read_storage::<Named>();
     let interacts = ecs.read_storage::<Interact>();
+    let winteracts = ecs.read_storage::<WantToInteract>();
     let map = ecs.fetch::<Map>();
 
     for (ppos, _player) in (&positions, &players).join() {
@@ -286,16 +303,19 @@ fn draw_npc(state: &State, ctx: &mut Rltk, y: &mut i32) {
                         &name.name,
                     );
                     *y += 1;
-                    for l in i.interaction.text.lines() {
-                        ctx.print_color(
-                            1,
-                            *y,
-                            RGB::named(rltk::GREEN),
-                            RGB::named(rltk::BLACK),
-                            &l,
-                        );
-                        *y += 1;
-                    }
+                    print_multiline_color(ctx, 1, y, RGB::named(rltk::GREEN), 78, vec!(&i.interaction.text));
+                } else if let Some(i) = winteracts.get(*ent) {
+                    let full_text=format!("{} (y to accept)",i.interaction.text);
+                    ctx.print_color(
+                        1,
+                        *y,
+                        RGB::named(rltk::GREEN),
+                        RGB::named(rltk::BLACK),
+                        &name.name,
+                    );
+                    *y += 1;
+                    print_multiline_color(ctx, 1, y, RGB::named(rltk::GREEN), 78, vec!(&full_text));
+
                 }
             }
         }

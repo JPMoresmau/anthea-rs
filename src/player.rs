@@ -1,6 +1,7 @@
 use super::{
     ItemMap, Map, Named, Player, Position, RunState, Stage, State, TileType, Viewshed, WantToDrop,
-    WantToPickup, Interaction, Condition, Flags, Keyed, Equipped, Item, NPC, Interact, PlayerView, Journal
+    WantToPickup, Interaction, InteractionType, Condition, Flags, Keyed, Equipped, Item, NPC, 
+    Interact, WantToInteract, PlayerView, Journal, PlayerResource
 };
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
@@ -29,12 +30,16 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
         let npcs = ecs.read_storage::<NPC>();
         let keys = ecs.read_storage::<Keyed>();
         let mut interacts = ecs.write_storage::<Interact>();
+        let mut winteracts = ecs.write_storage::<WantToInteract>();
         let map = ecs.fetch::<Map>();
         for ent in map.tile(x,y).content.iter() {
             if npcs.contains(*ent) {
                 if let Some(key) = keys.get(*ent){
                     if let Some(i) = get_interaction(ecs,&key.key) {
-                        interacts.insert(*ent, Interact{interaction: i,}).expect("cannot add interaction");
+                        match i.interaction_type {
+                            InteractionType::Question => {winteracts.insert(*ent, WantToInteract{interaction: i,}).expect("cannot add interaction");},
+                            InteractionType::Automatic => {interacts.insert(*ent, Interact{interaction: i,}).expect("cannot add interaction");},
+                        }
                     }
                 }
             }
@@ -78,7 +83,8 @@ fn drop_item(ecs: &mut World, ix: i32) {
 }
 
 fn set_player_view(gs: &mut State, player_view: PlayerView){
-    gs.player_view=player_view;
+    let mut pr=gs.ecs.fetch_mut::<PlayerResource>();
+    pr.player_view=player_view;
 }
 
 enum JournalMove {
@@ -104,6 +110,16 @@ fn set_journal_entry(gs: &mut State, jmove: JournalMove){
     }
 }
 
+fn interact(ecs: &mut World){
+    let mut winteract = ecs.write_storage::<WantToInteract>();
+    let mut interact = ecs.write_storage::<Interact>();
+    let entities = ecs.entities();
+    for (wi, ent) in (&winteract,&entities).join(){
+        interact.insert(ent,Interact{interaction: wi.interaction.clone()}).expect("Cannot insert interaction");
+    }
+    winteract.clear();
+}
+
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
     match ctx.key {
@@ -126,10 +142,14 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
                 VirtualKeyCode::H => set_player_view(gs, PlayerView::Help),
                 VirtualKeyCode::F1 => set_player_view(gs, PlayerView::Help),
                 VirtualKeyCode::G => pickup_item(&mut gs.ecs),
-                VirtualKeyCode::D => return RunState::Dropping,
+                VirtualKeyCode::D => {
+                    set_player_view(gs, PlayerView::Inventory);
+                    return RunState::Dropping;
+                },
                 VirtualKeyCode::P => set_journal_entry(gs, JournalMove::Previous),
                 VirtualKeyCode::N => set_journal_entry(gs, JournalMove::Next),
                 VirtualKeyCode::L => set_journal_entry(gs, JournalMove::Last),
+                VirtualKeyCode::Y => interact(&mut gs.ecs),
                 _ => return RunState::Paused,
             },
         },

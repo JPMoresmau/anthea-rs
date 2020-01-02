@@ -5,7 +5,7 @@ use specs::prelude::*;
 extern crate specs_derive;
 
 
-use std::collections::{HashMap,HashSet};
+use std::collections::{HashMap,HashSet,BTreeSet};
 use ron::de::from_str;
 
 mod gui;
@@ -40,7 +40,6 @@ pub enum PlayerView {
 pub struct State {
     pub ecs: World,
     pub runstate : RunState,
-    pub player_view: PlayerView,
 }
 
 impl GameState for State {
@@ -95,6 +94,10 @@ pub struct Journal {
     pub current: usize,
 }
 
+pub struct PlayerResource {
+    pub player_view: PlayerView,
+}
+
 fn main() {
     let mut context = Rltk::init_simple8x8(80, 60, "Anthea's Quest", "resources");
     let font = context.register_font(rltk::Font::load("resources/vga8x16.png", (8, 16)));
@@ -105,7 +108,6 @@ fn main() {
     let mut gs = State {
         ecs: World::new(),
         runstate: RunState::Running,
-        player_view: PlayerView::Characteristics,
     };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
@@ -121,6 +123,8 @@ fn main() {
     gs.ecs.register::<Weapon>();
     gs.ecs.register::<NPC>();
     gs.ecs.register::<Interact>();
+    gs.ecs.register::<WantToInteract>();
+    gs.ecs.register::<Wizard>();
 
     let ron1 = include_str!("stage1.ron");
     let stage = match from_str(ron1) {
@@ -136,6 +140,7 @@ fn main() {
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
 
+    gs.ecs.insert(PlayerResource{player_view: PlayerView::Characteristics,});
     gs.ecs.insert(ItemMap{map: HashMap::new()});
     gs.ecs.insert(Flags{set: HashSet::new()});
     let mut j = Journal{entries: Vec::new(), current: 0};
@@ -151,6 +156,7 @@ fn main() {
             bg: RGB::named(rltk::BLACK),
         })
         .with(Player{})
+        .with(Wizard{spells: BTreeSet::new()})
         .with(Viewshed{ visible_tiles: Vec::new(), range: 8, dirty: true })
         .with(Character::default())
         .build();

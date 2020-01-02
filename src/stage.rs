@@ -12,6 +12,7 @@ pub struct Stage {
     pub weapons: Vec<StageWeapon>,
     pub npcs: HashMap<String,StageNPC>,
     pub quests: HashMap<String,String>,
+    pub spells: HashMap<String,Spell>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,10 +50,26 @@ pub struct StageNPC {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub enum InteractionType {
+    Automatic,
+    Question,
+}
+
+impl Default for InteractionType {
+    fn default() -> Self {
+        InteractionType::Automatic
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Interaction {
+    #[serde(default)]
     pub conditions: Vec<Condition>,
     pub text: String,
+    #[serde(default)]
     pub actions: Vec<Action>,
+    #[serde(default)]
+    pub interaction_type: InteractionType,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -64,7 +81,18 @@ pub enum Condition {
 #[derive(Debug, Deserialize, Clone)]
 pub enum Action {
     SetFlag(String,String),
+    RemoveFlag(String,String),
     AddDiary(String,String),
     UseItem(String),
+    RaiseXP(u32),
+    UpdateCharacter(String, i32),
+    StartQuest(String),
+    CompleteQuest(String, u32),
+    LearnSpell(String, u32),
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct Spell {
+    pub name: String,
+    pub description: String,
+}
