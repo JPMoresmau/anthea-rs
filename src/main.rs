@@ -125,6 +125,9 @@ fn main() {
     gs.ecs.register::<Interact>();
     gs.ecs.register::<WantToInteract>();
     gs.ecs.register::<Wizard>();
+    gs.ecs.register::<InteractionProvider>();
+    gs.ecs.register::<Affordance>();
+    gs.ecs.register::<Potion>();
 
     let ron1 = include_str!("stage1.ron");
     let stage = match from_str(ron1) {
@@ -136,6 +139,8 @@ fn main() {
     let (player_x, player_y) = stage.rooms[&stage.start].dimensions.center();
     build_items(&mut gs.ecs,&stage,&mut map);
     build_npcs(&mut gs.ecs,&stage,&mut map);
+    build_affordances(&mut gs.ecs,&stage,&mut map);
+    build_potions(&mut gs.ecs,&stage);
 
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
@@ -205,6 +210,7 @@ fn build_npcs(ecs: &mut World,stage: &Stage, map: &mut Map){
             .with(Named {name: item.name.clone()})
             .with(Keyed {key: key.clone()})
             .with(NPC{})
+            .with(InteractionProvider{interactions:item.interactions.clone()})
             .with(Renderable {
                 glyph: rltk::to_cp437('c'),
                 fg: RGB::named(rltk::GREEN),
@@ -214,4 +220,36 @@ fn build_npcs(ecs: &mut World,stage: &Stage, map: &mut Map){
         map.mut_tile(item.position.0,item.position.1).content.insert(ent);
     }
     
+}
+
+fn build_affordances(ecs: &mut World,stage: &Stage, map: &mut Map){
+    
+    for (key,item) in stage.affordances.iter() {
+        let ent = ecs
+            .create_entity()
+            .with(Position { x: item.position.0, y: item.position.1 })
+            .with(Named {name: item.name.clone()})
+            .with(Keyed {key: key.clone()})
+            .with(Affordance{})
+            .with(InteractionProvider{interactions:item.interactions.clone()})
+            .with(Renderable {
+                glyph: rltk::to_cp437('a'),
+                fg: RGB::named(rltk::GREEN),
+                bg: RGB::named(rltk::BLACK),
+            })
+            .build();
+        map.mut_tile(item.position.0,item.position.1).content.insert(ent);
+    }
+    
+}
+
+fn build_potions(ecs: &mut World,stage: &Stage){
+    for (key,potion) in stage.potions.iter() {
+        ecs
+            .create_entity()
+            .with(Named {name: potion.name.clone()})
+            .with(Keyed {key: key.clone()})
+            .with(Potion{effects: potion.effects.clone()})
+            .build();
+     }
 }

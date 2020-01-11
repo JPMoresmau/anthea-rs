@@ -97,10 +97,10 @@ Stage (
                         AddDiary("main","Peleus forbids me to leave. He'll see!"),
                         ]
                 ),
-                (   conditions:[IfFlag(("main","PeleusForbidden"))],
+                (   conditions:[IfFlag("main","PeleusForbidden")],
                     text:"Once again, I am NOT going to let a girl go chasing a ghost.\nYour duty is to stay here and marry to strenghten my kingdom.\nDon't insist!",
                 ),
-                (   conditions:[IfFlag(("main","hairCut"))],
+                (   conditions:[IfFlag("main","hairCut")],
                     text:"I see you're determined enough get rid of the hair you were so proud of.\nAllright, I will give orders that you're allowed to leave.",
                     actions:[
                         SetFlag("main","allowedToLeave"),
@@ -127,13 +127,69 @@ Stage (
                 (text:"You'll always be a little girl to me. Let me comb your hair!"),
                 (conditions:[IfItem("scissors")],text:"You really want me to cut your hair with these scissors?",
                     interaction_type: Question,
+                    after_text:"Really a shame to cut such beautiful hair!",
                     actions:[SetFlag("main","hairCut"),UseItem("scissors"),RaiseXP(2),UpdateCharacter("charisma",2),
                         AddDiary("main","Nerita cut my hair so I don't look too much like a girl now. I think it suits me.")]),
-                (conditions:[IfFlag(("main","hairCut"))], text:"You look like a boy now! A pretty boy!"),
+                (conditions:[IfFlag("main","hairCut")], text:"You look like a boy now! A pretty boy!"),
+                (conditions:[IfFlag("main","hairCutSelf")], text:"What have you done to your hair? Shall I fix it for you?",
+                    interaction_type: Question,
+                    after_text:"Now, you look a bit better now!",
+                    actions:[RemoveFlag("main","hairCutSelf"),RaiseXP(2),UpdateCharacter("charisma",1),
+                        AddDiary("main","Nerita fixed my hair so it doesn't look as bad as it used to.")]),
             ],
+        ),
+        "Cherise": (name: "Cherise, the cook", position:(15,21),
+            interactions: [
+                (text:"Don't tell your brother, but there are rats in the cellar. I can't get rid of them, I wish somebody would kill them all!",
+                actions:[StartQuest("cellarRats"),AddDiary("cellarRats","Cherise would like somebody to kill the rats in the cellar.")]),
+                (conditions:[IfFlag("cellarRats","killedRats")],text:"Thanks for killing these rats! Here's a little pick-me-up I've made!",
+                actions:[CompleteQuest("cellarRats",1),AddDiary("cellarRats","I killed the rats Cherise was complaining about."),PickupPotion("healing")]),
+                (conditions:[IfQuestAchieved("cellarRats")],text:"Thanks again for killing these rats!"),
+            ],
+        ),
+        "Scopas":(name: "Scopas, the weapons master", position:(26,22),
+            interactions:[
+                (interaction_type: Question, text:"You want me to give you a quick training?",after_text:"You're getting better with a weapon, but you still need to practise!",
+                actions:[SetFlag("main","trained"),RaiseXP(1),UpdateCharacter("dexterity",1),AddDiary("main","Scopas gave me a hard fighting lesson.")]),
+                (conditions:[IfFlag("main","trained")],text:"You trained enough for today, don't tire yourself out!"),
+            ]
+        ),
+        "Theon":(name:"Theon, a palace guard", position:(25,30),
+            interactions:[
+                (text:"You are forbidden to go outside. I'm sorry my lady, your brother's orders"),
+                (conditions:[IfFlag("main","allowedToLeave")],text:"Peleus told us we could let you go. Good luck, my lady",
+                    actions:[RaiseXP(2),SetFlag("main","exitedPalace"),AddDiary("main","I can now go out of the palace"),AddDoor("gate","outside",4)]),
+                (conditions:[IfFlag("main","exitedPalace")],text:"Good day, my lady"),
+            ]
+
+        ),
+    },
+    affordances:{
+        "bedroomMirror":(name: "A little mirror", position:(12,8),
+            interactions: [
+                (text:"You look at yourself in the mirror"),
+                (conditions:[IfItem("scissors")],text:"Cut your hair with the scissors?",
+                    interaction_type: Question,
+                     after_text:"You cut your hair short.",
+                    actions:[SetFlag("main","hairCut"),UseItem("scissors"),RaiseXP(2),AddDiary("main","I cut my hair short using the bedroom mirror.")]),
+                (conditions:[IfFlag("main","hairCut")], text:"Your look at yourself and your short hair..."),
+            ]
+        ),
+        "gardenFountain":(name: "The garden fountain", position: (18,12),
+            interactions: [
+                (text:"The water is refreshing."),
+                (conditions:[IfItem("scissors")],text:"Cut your hair with the scissors, using the fountain as a mirror?",
+                    interaction_type: Question,
+                    after_text:"You feel you've made a mess, but you cut your hair short.",
+                    actions:[SetFlag("main","hairCut"),SetFlag("main","hairCutSelf"),UseItem("scissors"),RaiseXP(2),UpdateCharacter("charisma",-1),AddDiary("main","I cut my hair short using the fountain as a mirror. Not sure I did a great job.")]),
+                (conditions:[IfFlag("main","hairCut")], text:"Your reflection in the water looks like a grinning boy..."),
+            ]
         ),
     },
     spells: {
         "fear":(name:"Fear", description:"Causes ennemies to flee in panic"),
-    }
+    },
+    potions: {
+        "healing":(name:"Healing potion", effects:[(characteristic: "life", diff: 10)])
+    },
 )

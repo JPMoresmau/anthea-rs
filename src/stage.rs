@@ -11,8 +11,10 @@ pub struct Stage {
     pub items: HashMap<String,StageItem>,
     pub weapons: Vec<StageWeapon>,
     pub npcs: HashMap<String,StageNPC>,
+    pub affordances: HashMap<String,StageAffordance>,
     pub quests: HashMap<String,String>,
     pub spells: HashMap<String,Spell>,
+    pub potions: HashMap<String,StagePotion>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,6 +51,13 @@ pub struct StageNPC {
     pub interactions: Vec<Interaction>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct StageAffordance {
+    pub name: String,
+    pub position: (i32, i32),
+    pub interactions: Vec<Interaction>,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub enum InteractionType {
     Automatic,
@@ -70,12 +79,15 @@ pub struct Interaction {
     pub actions: Vec<Action>,
     #[serde(default)]
     pub interaction_type: InteractionType,
+    #[serde(default)]
+    pub after_text: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum Condition {
-    IfFlag((String,String)),
+    IfFlag(String,String),
     IfItem(String),
+    IfQuestAchieved(String),
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -89,10 +101,24 @@ pub enum Action {
     StartQuest(String),
     CompleteQuest(String, u32),
     LearnSpell(String, u32),
+    PickupPotion(String),
+    AddDoor(String,String,usize),
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Spell {
     pub name: String,
     pub description: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StagePotion {
+    pub name: String,
+    pub effects: Vec<Effect>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Effect {
+    pub characteristic: String,
+    pub diff: i32,
 }

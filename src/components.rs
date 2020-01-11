@@ -1,7 +1,7 @@
 use specs::prelude::*;
 use rltk::{RGB,Point};
 use std::collections::BTreeSet;
-use super::{Interaction};
+use super::{Interaction, Effect};
 
 #[derive(Component, Debug, Clone)]
 pub struct Position {
@@ -58,6 +58,11 @@ pub struct Item {
 }
 
 #[derive(Component, Debug)]
+pub struct Potion {
+    pub effects: Vec<Effect>,
+}
+
+#[derive(Component, Debug)]
 pub struct Weapon {
     pub damage_min: i32,
     pub damage_max: i32,
@@ -89,6 +94,15 @@ pub struct WantToDrop {
 
 #[derive(Component, Debug)]
 pub struct NPC {
+}
+
+#[derive(Component, Debug)]
+pub struct Affordance {
+}
+
+#[derive(Component, Debug)]
+pub struct InteractionProvider {
+    pub interactions: Vec<Interaction>,
 }
 
 #[derive(Component, Debug)]

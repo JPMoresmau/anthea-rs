@@ -1,6 +1,6 @@
 use super::{
-    ItemMap, Map, Named, Player, Position, RunState, Stage, State, TileType, Viewshed, WantToDrop,
-    WantToPickup, Interaction, InteractionType, Condition, Flags, Keyed, Equipped, Item, NPC, 
+    ItemMap, Map, Named, Player, Position, RunState, State, TileType, Viewshed, WantToDrop,
+    WantToPickup, Interaction, InteractionType, Condition, Flags, Keyed, Equipped, Item, InteractionProvider, 
     Interact, WantToInteract, PlayerView, Journal, PlayerResource
 };
 use rltk::{Rltk, VirtualKeyCode};
@@ -27,21 +27,19 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     }
 
     if let Some((x,y)) = new_pos {
-        let npcs = ecs.read_storage::<NPC>();
-        let keys = ecs.read_storage::<Keyed>();
+        let ips = ecs.read_storage::<InteractionProvider>();
         let mut interacts = ecs.write_storage::<Interact>();
         let mut winteracts = ecs.write_storage::<WantToInteract>();
         let map = ecs.fetch::<Map>();
         for ent in map.tile(x,y).content.iter() {
-            if npcs.contains(*ent) {
-                if let Some(key) = keys.get(*ent){
-                    if let Some(i) = get_interaction(ecs,&key.key) {
-                        match i.interaction_type {
-                            InteractionType::Question => {winteracts.insert(*ent, WantToInteract{interaction: i,}).expect("cannot add interaction");},
-                            InteractionType::Automatic => {interacts.insert(*ent, Interact{interaction: i,}).expect("cannot add interaction");},
-                        }
+            if let Some(ip) = ips.get(*ent) {
+                if let Some(i) = get_interaction(ecs,ip) {
+                    match i.interaction_type {
+                        InteractionType::Question => {winteracts.insert(*ent, WantToInteract{interaction: i,}).expect("cannot add interaction");},
+                        InteractionType::Automatic => {interacts.insert(*ent, Interact{interaction: i,}).expect("cannot add interaction");},
                     }
                 }
+                
             }
         }
 
@@ -115,7 +113,8 @@ fn interact(ecs: &mut World){
     let mut interact = ecs.write_storage::<Interact>();
     let entities = ecs.entities();
     for (wi, ent) in (&winteract,&entities).join(){
-        interact.insert(ent,Interact{interaction: wi.interaction.clone()}).expect("Cannot insert interaction");
+        let i = Interaction {text: wi.interaction.after_text.clone(), ..wi.interaction.clone()};
+        interact.insert(ent,Interact{interaction: i}).expect("Cannot insert interaction");
     }
     winteract.clear();
 }
@@ -164,16 +163,10 @@ fn waiting_state(runstate: RunState) -> RunState {
     }
 }
 
-fn get_interaction(ecs: &World, npc_code: &str) -> Option<Interaction> {
-    let stage = ecs.fetch::<Stage>();
-    if let Some(npc) = stage.npcs.get(npc_code){
-        npc.interactions.iter()
-            .filter(|i| valid_interaction(ecs, i))
-            .last().cloned()
-    } else {
-        None
-    }
-
+fn get_interaction(ecs: &World,ip: &InteractionProvider) -> Option<Interaction> {
+    ip.interactions.iter()
+        .filter(|i| valid_interaction(ecs, i))
+        .last().cloned()
 }
 
 fn valid_interaction(ecs: &World,interaction: &Interaction) -> bool {
@@ -187,10 +180,14 @@ fn valid_interaction(ecs: &World,interaction: &Interaction) -> bool {
 
 fn valid_condition(ecs: &World, condition: &Condition) -> bool {
     match condition {
-        Condition::IfFlag(fl) =>{
+        Condition::IfFlag(q,f) =>{
             let fs=ecs.fetch::<Flags>();
-            fs.set.contains(fl)
+            fs.set.contains(&(q.clone(),f.clone()))
         },
+        Condition::IfQuestAchieved(q)=> {
+            let fs=ecs.fetch::<Flags>();
+            fs.set.contains(&(q.clone(),"DONE".to_owned()))
+        }
         Condition::IfItem(item) => {
             let keys = ecs.read_storage::<Keyed>();
             let equippeds = ecs.read_storage::<Equipped>();

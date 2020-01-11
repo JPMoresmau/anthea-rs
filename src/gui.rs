@@ -28,7 +28,7 @@ pub fn draw_ui(state: &State, ctx: &mut Rltk) {
         RGB::named(rltk::BLACK),
     );
     let mut y = 25;
-    draw_npc(state, ctx, &mut y);
+    draw_interact(state, ctx, &mut y);
     if y==25{
         draw_position(state, ctx, &mut y);
     }
@@ -281,7 +281,7 @@ fn draw_item(state: &State, ctx: &mut Rltk, y: &mut i32) {
     }
 }
 
-fn draw_npc(state: &State, ctx: &mut Rltk, y: &mut i32) {
+fn draw_interact(state: &State, ctx: &mut Rltk, y: &mut i32) {
     let ecs = &state.ecs;
     let positions = ecs.read_storage::<Position>();
     let players = ecs.read_storage::<Player>();

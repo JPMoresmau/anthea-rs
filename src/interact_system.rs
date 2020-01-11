@@ -1,7 +1,7 @@
 extern crate specs;
 use specs::prelude::*;
 use super::{Interact, Flags, Action, Position, Player, Journal, Keyed, Equipped, Character,
-     Wizard, WantToInteract, PlayerResource, PlayerView};
+     Wizard, WantToInteract, PlayerResource, PlayerView, Potion, Stage, Map};
 
 pub struct InteractSystem {}
 
@@ -12,9 +12,12 @@ impl<'a> System<'a> for InteractSystem {
                         WriteExpect<'a, Flags>,
                         WriteExpect<'a, Journal>,
                         WriteExpect<'a, PlayerResource>,
+                        ReadExpect<'a, Stage>,
+                        WriteExpect<'a, Map>,
                         ReadStorage<'a, Position>,
                         ReadStorage<'a, Player>,
                         ReadStorage<'a, Keyed>,
+                        ReadStorage<'a, Potion>,
                         WriteStorage<'a, Equipped>,
                         WriteStorage<'a, Character>,
                         WriteStorage<'a, Wizard>,
@@ -22,7 +25,7 @@ impl<'a> System<'a> for InteractSystem {
                     );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (mut interacts,mut winteracts,mut flags, mut journal, mut pr, positions, players, keyeds, mut equipped, mut characters, mut wizards, entities) = data;
+        let (mut interacts,mut winteracts,mut flags, mut journal, mut pr, stage, mut map, positions, players, keyeds, potions, mut equipped, mut characters, mut wizards, entities) = data;
         let mut oplayer_pos=None;
         for (pos,_player) in (&positions,&players).join(){
             oplayer_pos=Some(pos);
@@ -85,7 +88,17 @@ impl<'a> System<'a> for InteractSystem {
                                     wizard.spells.insert(spell.to_owned());
                                     pr.player_view=PlayerView::Spells;
                                 }
-                            }
+                            },
+                            Action::PickupPotion(potion) => {
+                                for (_potion,key,entity) in (&potions, &keyeds,&entities).join(){
+                                    if *potion == key.key{
+                                        equipped.insert(entity,Equipped{}).expect("Cannot equip potion");
+                                    }
+                                }
+                            },
+                            Action::AddDoor(room1,room2,width)=>{
+                                map.add_door(&stage,room1,room2,width);
+                            },
                         };
                     }
                     ents.push(ent);
