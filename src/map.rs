@@ -3,6 +3,7 @@ use super::{Rect,Stage};
 use std::cmp::{max, min};
 use specs::prelude::*;
 use std::collections::HashSet;
+use std::ops::Rem;
 
 #[derive(PartialEq, Copy, Clone, Debug )]
 pub enum TileType {
@@ -18,6 +19,7 @@ pub struct Tile {
     pub tile_type: TileType,
     pub revealed: bool,
     pub visible: bool,
+    pub visited: bool,
     pub room: Option<String>,
     pub content: HashSet<Entity>,
 }
@@ -28,6 +30,7 @@ impl Tile {
             tile_type: ttype,
             revealed: false,
             visible: false,
+            visited: false,
             room: None,
             content: HashSet::new(),
         }
@@ -91,6 +94,11 @@ impl Map {
 
     pub fn xy_idx(&self, x: i32, y: i32) -> usize {
         (y as usize * self.width as usize) + x as usize
+    }
+
+    pub fn idx_xy(&self, idx: usize) -> (i32,i32) {
+        let x = (idx as i32).rem(self.width);
+        (x,(idx as i32-x)/self.width)
     }
 
     fn apply_horizontal_door(&mut self, r1: &Rect, r2: &Rect, width : &usize) {

@@ -26,10 +26,14 @@ mod pickup_system;
 pub use pickup_system::*;
 mod interact_system;
 pub use interact_system::*;
+mod rpg;
+pub use rpg::*;
+mod combat_system;
+pub use combat_system::*;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState {
-    Running, Dropping, Paused,
+    Running, Dropping, Paused, Combat, 
 }
 
 #[derive(PartialEq, Copy, Clone)]
@@ -47,25 +51,40 @@ impl GameState for State {
         ctx.set_active_console(0);
         ctx.cls();
 
-        if self.runstate == RunState::Running {
-            self.run_systems();
-            self.runstate = RunState::Paused;
-        } else {
-            self.runstate = player_input(self, ctx);
-        }
+        {
+            Map::draw_map(&self.ecs, ctx);
 
-        Map::draw_map(&self.ecs, ctx);
-
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
-        
-        let map = self.ecs.fetch::<Map>();
-        for (pos, render) in (&positions, &renderables).join() {
-            if map.is_visible(pos.x, pos.y){
-                ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+            let positions = self.ecs.read_storage::<Position>();
+            let renderables = self.ecs.read_storage::<Renderable>();
+            
+            let map = self.ecs.fetch::<Map>();
+            for (pos, render) in (&positions, &renderables).join() {
+                if map.is_visible(pos.x, pos.y){
+                    ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+                }
             }
+            gui::draw_ui(&self, ctx);
         }
-        gui::draw_ui(&self, ctx);
+
+        match self.runstate {
+            RunState::Combat => {
+                let mut csys = CombatSystem{};
+                csys.run_now(&self.ecs);
+                self.ecs.maintain();
+                if let CombatResult::Stop = gui::draw_combat(&self, ctx) {
+                   self.runstate = RunState::Running;
+                   self.ecs.write_storage::<InFight>().clear();
+                   self.ecs.write_storage::<Fled>().clear();
+                     
+                }
+                
+            },
+            RunState::Running => {
+                self.run_systems();
+                self.runstate = RunState::Paused; 
+            },
+            _ => self.runstate = player_input(self, ctx),
+        } 
     }
 }
 
@@ -84,6 +103,11 @@ impl State {
 pub struct ItemMap {
     pub map: HashMap<i32,Entity>,
 }
+
+pub struct MonsterMap {
+    pub map: HashMap<String,Entity>,
+}
+
 
 pub struct Flags {
     pub set: HashSet<(String,String)>,
@@ -128,6 +152,14 @@ fn main() {
     gs.ecs.register::<InteractionProvider>();
     gs.ecs.register::<Affordance>();
     gs.ecs.register::<Potion>();
+    gs.ecs.register::<Monster>();
+    gs.ecs.register::<WantsToFight>();
+    gs.ecs.register::<WantsToFlee>();
+    gs.ecs.register::<InFight>();
+    gs.ecs.register::<Fled>();
+    gs.ecs.register::<Damage>();
+    gs.ecs.register::<Dead>();
+
 
     let ron1 = include_str!("stage1.ron");
     let stage = match from_str(ron1) {
@@ -142,6 +174,10 @@ fn main() {
     build_affordances(&mut gs.ecs,&stage,&mut map);
     build_potions(&mut gs.ecs,&stage);
 
+    let mut mmap=MonsterMap{map: HashMap::new()};
+    build_monsters(&mut gs.ecs, &stage, &mut mmap);
+    gs.ecs.insert(mmap);
+
     gs.ecs.insert(map);
     gs.ecs.insert(stage);
 
@@ -152,7 +188,7 @@ fn main() {
     j.entries.push(("main".to_owned(),"I have decided it, and nothing will alter my resolve. I will set up in search for Father. Peleus cannot stop me.".to_owned()));
     gs.ecs.insert(j);
 
-    gs.ecs
+    let player_entity = gs.ecs
         .create_entity()
         .with(Position { x: player_x, y: player_y })
         .with(Renderable {
@@ -165,6 +201,7 @@ fn main() {
         .with(Viewshed{ visible_tiles: Vec::new(), range: 8, dirty: true })
         .with(Character::default())
         .build();
+    gs.ecs.insert(player_entity);
 
     rltk::main_loop(context, gs);
 }
@@ -252,4 +289,20 @@ fn build_potions(ecs: &mut World,stage: &Stage){
             .with(Potion{effects: potion.effects.clone()})
             .build();
      }
+}
+
+fn build_monsters(ecs: &mut World,stage: &Stage, mmap: &mut MonsterMap){
+    for (key,monster) in stage.monsters.iter(){
+        for room in monster.rooms.iter() {
+            let ent=ecs
+                .create_entity()
+                .with(Named {name: monster.name.clone()})
+                .with(monster.character.clone())
+                .with(Monster{})
+                .with(Keyed {key: key.clone()})
+                .with(Weapon{damage_min:monster.weapon.damage.0, damage_max:monster.weapon.damage.1})
+                .build();
+            mmap.map.insert(room.to_owned(),ent);
+        }
+    }
 }

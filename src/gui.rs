@@ -1,9 +1,9 @@
 extern crate rltk;
-use rltk::{Console, Rltk, RGB};
+use rltk::{Console, Rltk, RGB, VirtualKeyCode};
 extern crate specs;
 use super::{
-    Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State,
-    Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource
+    Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State, Damage,
+    Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource, WantsToFight, Monster, WantsToFlee, InFight, Fled, CombatResult
 };
 use specs::prelude::*;
 
@@ -321,6 +321,124 @@ fn draw_interact(state: &State, ctx: &mut Rltk, y: &mut i32) {
         }
         
     }
+}
+
+pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
+    let wizards = gs.ecs.read_storage::<Wizard>();
+    let player_entity = gs.ecs.fetch::<Entity>();
+    let stage = gs.ecs.fetch::<Stage>();
+    
+    let owizard =  wizards.get(*player_entity)  ;
+
+    let fights = gs.ecs.read_storage::<InFight>();
+    let fleds = gs.ecs.read_storage::<Fled>();
+    let ofled = fleds.get(*player_entity);
+
+    let characters = gs.ecs.read_storage::<Character>();
+    let damages = gs.ecs.read_storage::<Damage>();
+    let entities = gs.ecs.entities();
+    let mut count = 3;
+
+    let names= gs.ecs.read_storage::<Named>();
+    let monsters= gs.ecs.read_storage::<Monster>();
+
+    if ofled.is_none(){
+        if let Some(wizard) = owizard { 
+            count += wizard.spells.len();
+        }
+    }
+
+    let mut msgs = vec!();
+    for(damage,character,entity) in (&damages,&characters, &entities).join(){
+        if entity==*player_entity {
+            msgs.push(format!("You get hit for {} damage! You have {} life points left.",damage.damage,character.life));
+        } else {
+            let name = &names.get(entity).expect("No name for monster").name;
+            msgs.push(format!("You hit {} for {} damage!",name,damage.damage));
+        }
+    }
+    count+=msgs.len();
+    let x = 10;
+    let textx = x+3;
+
+    let mut y = (10 - (count / 2)) as i32;
+    ctx.draw_box(x, y-2, 60, (count+3) as i32, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
+    let mut monster_ents = vec!();
+
+    for (name, _wtf, _ms, ent) in (&names,&fights,&monsters, &entities).join(){
+        ctx.print_color(textx, y-2, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &name.name);
+        monster_ents.push(ent);
+    }
+
+    for s in msgs {
+        ctx.print_color(textx, y, RGB::named(rltk::RED), RGB::named(rltk::BLACK), &s);
+        y+=1;
+    }
+
+
+    let mut rs = CombatResult::Continue;
+    if ofled.is_some(){
+        ctx.print_color(textx, y, RGB::named(rltk::GREEN), RGB::named(rltk::BLACK), "You manage to escape!");
+        ctx.print_color(textx, y+1 as i32+1, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "SPACE to continue");
+        match ctx.key {
+            None => (),
+            Some(key) => {
+                match key {
+                    VirtualKeyCode::Space => {
+                        rs = CombatResult::Stop;
+                    }
+                    _ => ()
+                }
+               
+            }
+        }
+    } else {
+        let mut j=0;
+        write_option(ctx, textx, y, j, "Attack");
+        y+=1;
+        j+=1;
+        write_option(ctx, textx, y, j, "Flee");
+        if let Some(wizard) = owizard { 
+            for spell in wizard.spells.iter() {
+                let spell_struct=stage.spells.get(spell).expect(&format!("no spell {}",spell));
+                write_option(ctx, textx, y, j, &spell_struct.name );
+                y+=1;
+                j+=1;
+            }
+        }
+
+        match ctx.key {
+            Some(key) => {
+                let mut wantstofight = gs.ecs.write_storage::<WantsToFight>();
+                let selection = rltk::letter_to_option(key);
+                for m in monster_ents {
+                    wantstofight.insert(m,WantsToFight{}).expect("Cannot add fight");
+                }
+                match selection {
+                    0 => {
+                       wantstofight.insert(*player_entity,WantsToFight{}).expect("Cannot add fight");
+                    },
+                    1 => {
+                        let mut flee=gs.ecs.write_storage::<WantsToFlee>();
+                        flee.insert(*player_entity,WantsToFlee{}).expect("Cannot add flee");
+                    },
+                    _ => {
+
+                    }
+                }
+            },
+            _ => (),
+        }
+    }
+    rs
+
+}
+
+fn write_option(ctx : &mut Rltk, textx: i32, y: i32, j: i32, option: &str){
+    ctx.set(textx, y, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK), rltk::to_cp437('('));
+    ctx.set(textx +1, y, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), 97+j as u8);
+    ctx.set(textx +2, y, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK), rltk::to_cp437(')'));
+    ctx.print(textx +4, y, option);
 }
 
 fn split(s: &str, width: usize) -> Vec<String> {

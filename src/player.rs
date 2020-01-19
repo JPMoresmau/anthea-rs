@@ -1,20 +1,21 @@
 use super::{
     ItemMap, Map, Named, Player, Position, RunState, State, TileType, Viewshed, WantToDrop,
     WantToPickup, Interaction, InteractionType, Condition, Flags, Keyed, Equipped, Item, InteractionProvider, 
-    Interact, WantToInteract, PlayerView, Journal, PlayerResource
+    Interact, WantToInteract, PlayerView, Journal, PlayerResource, MonsterMap, initiative, Character, WantsToFight, InFight
 };
 use rltk::{Rltk, VirtualKeyCode};
 use specs::prelude::*;
 use std::cmp::{max, min};
 
-fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
+fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) -> RunState {
     let mut positions = ecs.write_storage::<Position>();
     let mut players = ecs.write_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
-    let map = ecs.fetch::<Map>();
+    
+    let mut map = ecs.fetch_mut::<Map>();
 
     let mut new_pos=Option::None;
-
+    
     for (_player, pos, viewshed) in (&mut players, &mut positions, &mut viewsheds).join() {
         let destination_idx = map.xy_idx(pos.x + delta_x, pos.y + delta_y);
         if map.tiles[destination_idx].tile_type != TileType::Wall {
@@ -22,7 +23,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
             pos.y = min(map.height - 1, max(0, pos.y + delta_y));
             new_pos=Option::Some((pos.x,pos.y));
             viewshed.dirty = true;
-
+            map.tiles[destination_idx].visited=true;
         }
     }
 
@@ -30,7 +31,24 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
         let ips = ecs.read_storage::<InteractionProvider>();
         let mut interacts = ecs.write_storage::<Interact>();
         let mut winteracts = ecs.write_storage::<WantToInteract>();
-        let map = ecs.fetch::<Map>();
+
+        let mmap = ecs.fetch::<MonsterMap>();
+        if let Some(r) = &map.tile(x, y).room {
+            if let Some(monsterent)=mmap.map.get(r){
+                let chars = ecs.read_storage::<Character>();
+                let player_entity = ecs.fetch::<Entity>();
+                let init = initiative(chars.get(*player_entity).expect("no character entity for player"), chars.get(*monsterent).expect("no character entity for monster"));
+                let mut ifs = ecs.write_storage::<InFight>();
+                ifs.insert(*monsterent, InFight{}).expect("Could not add in fight monster");
+                if !init {
+                    let mut wtfs = ecs.write_storage::<WantsToFight>();
+                    wtfs.insert(*monsterent, WantsToFight{}).expect("Could not add wants to fight to monster");
+                }
+                return RunState::Combat;
+              
+            }
+
+        }
         for ent in map.tile(x,y).content.iter() {
             if let Some(ip) = ips.get(*ent) {
                 if let Some(i) = get_interaction(ecs,ip) {
@@ -42,8 +60,9 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
                 
             }
         }
-
+        
     }
+    RunState::Running
 }
 
 fn pickup_item(ecs: &mut World) {
@@ -121,19 +140,20 @@ fn interact(ecs: &mut World){
 
 pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
     // Player movement
+    let mut rs = RunState::Running;
     match ctx.key {
         None => return waiting_state(gs.runstate), // Nothing happened
         Some(key) => match gs.runstate {
             RunState::Dropping => drop_item(&mut gs.ecs, rltk::letter_to_option(key)),
             _ => match key {
-                VirtualKeyCode::Left => try_move_player(-1, 0, &mut gs.ecs),
-                VirtualKeyCode::Numpad4 => try_move_player(-1, 0, &mut gs.ecs),
-                VirtualKeyCode::Right => try_move_player(1, 0, &mut gs.ecs),
-                VirtualKeyCode::Numpad6 => try_move_player(1, 0, &mut gs.ecs),
-                VirtualKeyCode::Up => try_move_player(0, -1, &mut gs.ecs),
-                VirtualKeyCode::Numpad8 => try_move_player(0, -1, &mut gs.ecs),
-                VirtualKeyCode::Down => try_move_player(0, 1, &mut gs.ecs),
-                VirtualKeyCode::Numpad2 => try_move_player(0, 1, &mut gs.ecs),
+                VirtualKeyCode::Left => rs = try_move_player(-1, 0, &mut gs.ecs),
+                VirtualKeyCode::Numpad4 => rs = try_move_player(-1, 0, &mut gs.ecs),
+                VirtualKeyCode::Right => rs = try_move_player(1, 0, &mut gs.ecs),
+                VirtualKeyCode::Numpad6 => rs = try_move_player(1, 0, &mut gs.ecs),
+                VirtualKeyCode::Up => rs = try_move_player(0, -1, &mut gs.ecs),
+                VirtualKeyCode::Numpad8 => rs = try_move_player(0, -1, &mut gs.ecs),
+                VirtualKeyCode::Down => rs = try_move_player(0, 1, &mut gs.ecs),
+                VirtualKeyCode::Numpad2 => rs = try_move_player(0, 1, &mut gs.ecs),
                 VirtualKeyCode::J => set_player_view(gs, PlayerView::Diary),
                 VirtualKeyCode::C => set_player_view(gs, PlayerView::Characteristics),
                 VirtualKeyCode::I => set_player_view(gs, PlayerView::Inventory),
@@ -143,17 +163,17 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
                 VirtualKeyCode::G => pickup_item(&mut gs.ecs),
                 VirtualKeyCode::D => {
                     set_player_view(gs, PlayerView::Inventory);
-                    return RunState::Dropping;
+                    rs = RunState::Dropping;
                 },
                 VirtualKeyCode::P => set_journal_entry(gs, JournalMove::Previous),
                 VirtualKeyCode::N => set_journal_entry(gs, JournalMove::Next),
                 VirtualKeyCode::L => set_journal_entry(gs, JournalMove::Last),
                 VirtualKeyCode::Y => interact(&mut gs.ecs),
-                _ => return RunState::Paused,
+                _ => rs = RunState::Paused,
             },
         },
     }
-    RunState::Running
+    rs
 }
 
 fn waiting_state(runstate: RunState) -> RunState {

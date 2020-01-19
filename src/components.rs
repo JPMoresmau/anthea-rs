@@ -2,6 +2,7 @@ use specs::prelude::*;
 use rltk::{RGB,Point};
 use std::collections::BTreeSet;
 use super::{Interaction, Effect};
+use serde::Deserialize;
 
 #[derive(Component, Debug, Clone)]
 pub struct Position {
@@ -26,7 +27,7 @@ pub struct Viewshed {
     pub dirty : bool,
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Deserialize, Clone)]
 pub struct Character {
     pub strength: u32,
     pub dexterity: u32,
@@ -64,8 +65,8 @@ pub struct Potion {
 
 #[derive(Component, Debug)]
 pub struct Weapon {
-    pub damage_min: i32,
-    pub damage_max: i32,
+    pub damage_min: u32,
+    pub damage_max: u32,
 }
 
 #[derive(Component, Debug)]
@@ -121,3 +122,37 @@ pub struct Wizard {
     pub spells: BTreeSet<String>,
 }
 
+#[derive(Component, Debug)]
+pub struct Monster {
+
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct InFight {
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct WantsToFight {
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct WantsToFlee {
+   
+}
+
+
+#[derive(Component, Debug, Clone)]
+pub struct Fled {
+   
+}
+
+
+#[derive(Component, Debug, Clone)]
+pub struct Damage {
+   pub damage: u32,
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Dead {
+
+}

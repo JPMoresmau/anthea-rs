@@ -1,8 +1,8 @@
-use super::{Rect};
+use super::{Rect, Character};
 use std::collections::HashMap;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Stage {
     pub name: String,
     pub rooms: HashMap<String, Room>,
@@ -15,43 +15,46 @@ pub struct Stage {
     pub quests: HashMap<String,String>,
     pub spells: HashMap<String,Spell>,
     pub potions: HashMap<String,StagePotion>,
+    pub monsters: HashMap<String,StageMonster>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Room {
     pub dimensions: Rect,
     pub name: String,
     pub description: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Door {
     pub room1: String,
     pub room2: String,
     pub width: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StageItem {
     pub name: String,
+    #[serde(default)]
     pub position: (i32, i32),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StageWeapon {
     pub name: String,
+    #[serde(default)]
     pub position: (i32, i32),
-    pub damage: (i32, i32),
+    pub damage: (u32, u32),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StageNPC {
     pub name: String,
     pub position: (i32, i32),
     pub interactions: Vec<Interaction>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StageAffordance {
     pub name: String,
     pub position: (i32, i32),
@@ -122,3 +125,22 @@ pub struct Effect {
     pub characteristic: String,
     pub diff: i32,
 }
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct StageMonster {
+    pub name: String,
+    pub character: Character,
+    #[serde(default)]
+    pub items: Vec<StageItem>,
+    pub weapon: StageWeapon,
+    #[serde(default)]
+    pub attacks: Vec<String>,
+    #[serde(default)]
+    pub misses: Vec<String>,
+    #[serde(default)]
+    pub actions: Vec<Action>,
+    #[serde(default)]
+    pub rooms: Vec<String>,
+}
+
+
