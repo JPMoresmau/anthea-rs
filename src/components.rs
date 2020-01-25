@@ -1,7 +1,7 @@
 use specs::prelude::*;
 use rltk::{RGB,Point};
 use std::collections::BTreeSet;
-use super::{Interaction, Effect};
+use super::{Interaction, Effect, Action};
 use serde::Deserialize;
 
 #[derive(Component, Debug, Clone)]
@@ -112,6 +112,12 @@ pub struct Interact {
 }
 
 #[derive(Component, Debug)]
+pub struct ActionHolder {
+    pub actions: Vec<Action>,
+}
+
+
+#[derive(Component, Debug)]
 pub struct WantToInteract {
     pub interaction: Interaction,
 }
@@ -151,6 +157,7 @@ pub struct Fled {
 pub struct Damage {
    pub damage: u32,
 }
+
 
 #[derive(Component, Debug, Clone)]
 pub struct Dead {

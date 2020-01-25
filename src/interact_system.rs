@@ -33,7 +33,7 @@ impl<'a> System<'a> for InteractSystem {
         if let Some(player_pos) = oplayer_pos {
             let mut ents = vec!();
             for (pos,i,ent) in (&positions,&interacts,&entities).join(){
-                if pos.x!=player_pos.x || pos.y!=player_pos.y {
+                //if pos.x!=player_pos.x || pos.y!=player_pos.y {
                     for act in i.interaction.actions.iter(){
                         match act {
                             Action::SetFlag(quest, flag) => {
@@ -102,16 +102,16 @@ impl<'a> System<'a> for InteractSystem {
                         };
                     }
                     ents.push(ent);
-                }
+                //}
             }
-            ents.iter().for_each(|e| {interacts.remove(*e);});
+           /* ents.iter().for_each(|e| {interacts.remove(*e);});
             ents.clear();
             for (pos,_wi,ent) in (&positions,&winteracts,&entities).join(){
                 if pos.x!=player_pos.x || pos.y!=player_pos.y {
                     ents.push(ent);
                 }
             }
-            ents.iter().for_each(|e| {winteracts.remove(*e);});
+            ents.iter().for_each(|e| {winteracts.remove(*e);});*/
         }
        
     }

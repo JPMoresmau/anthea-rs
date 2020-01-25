@@ -8,6 +8,7 @@ use specs::prelude::*;
 use std::cmp::{max, min};
 
 fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) -> RunState {
+    clear_interactions(ecs);
     let mut positions = ecs.write_storage::<Position>();
     let mut players = ecs.write_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
@@ -65,6 +66,14 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) -> RunState {
     RunState::Running
 }
 
+fn clear_interactions(ecs: &mut World){
+    let mut interacts = ecs.write_storage::<Interact>();
+    let mut winteracts = ecs.write_storage::<WantToInteract>();
+
+    interacts.clear();
+    winteracts.clear();       
+}
+
 fn pickup_item(ecs: &mut World) {
     let positions = ecs.read_storage::<Position>();
     let players = ecs.read_storage::<Player>();
@@ -100,6 +109,7 @@ fn drop_item(ecs: &mut World, ix: i32) {
 }
 
 fn set_player_view(gs: &mut State, player_view: PlayerView){
+    clear_interactions(&mut gs.ecs);
     let mut pr=gs.ecs.fetch_mut::<PlayerResource>();
     pr.player_view=player_view;
 }
@@ -109,6 +119,7 @@ enum JournalMove {
 }
 
 fn set_journal_entry(gs: &mut State, jmove: JournalMove){
+    clear_interactions(&mut gs.ecs);
     let mut j = gs.ecs.fetch_mut::<Journal>();
     match jmove {
         JournalMove::Previous => {
@@ -130,6 +141,7 @@ fn set_journal_entry(gs: &mut State, jmove: JournalMove){
 fn interact(ecs: &mut World){
     let mut winteract = ecs.write_storage::<WantToInteract>();
     let mut interact = ecs.write_storage::<Interact>();
+    interact.clear();
     let entities = ecs.entities();
     for (wi, ent) in (&winteract,&entities).join(){
         let i = Interaction {text: wi.interaction.after_text.clone(), ..wi.interaction.clone()};

@@ -1,17 +1,15 @@
 extern crate specs;
 use specs::prelude::*;
 use super::{Position, Player, Keyed, Equipped, Weapon, Character,Dead,
-     Wizard, Stage, InFight, Monster, WantsToFight, WantsToFlee,Map, Fled,fight_round,Damage};
+     Wizard, InFight, Monster, WantsToFight, WantsToFlee,Map, Fled,fight_round,Damage};
 use rand::Rng;
 
 pub struct CombatSystem {}
 
 impl<'a> System<'a> for CombatSystem {
-    type SystemData = ( ReadExpect<'a, Stage>,
-                        ReadExpect<'a, Map>,
+    type SystemData = ( ReadExpect<'a, Map>,
                         WriteStorage<'a, Position>,
                         ReadStorage<'a, Player>,
-                        ReadStorage<'a, Keyed>,
                         ReadStorage<'a, Equipped>,
                         ReadStorage<'a, Weapon>,
                         WriteStorage<'a, Character>,
@@ -27,10 +25,10 @@ impl<'a> System<'a> for CombatSystem {
                     );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (stage, map, mut positions, players, keyeds, equipped, weapons, mut characters, mut wizards,infight,monsters,mut wantstofight, mut wantstoflee, mut fled, mut damages, mut dead, entities) = data;
+        let (map, mut positions, players, equipped, weapons, mut characters, mut wizards,infight,monsters,mut wantstofight, mut wantstoflee, mut fled, mut damages, mut dead, entities) = data;
 
         let mut dmgs = vec!();
-
+        let mut monster_damage = 0;
         for (_player,_wantstofight,chr) in (&players,&wantstofight,&characters).join(){
             for (_monster,_infight,mchr, ent) in (&monsters,&infight,&characters,&entities).join(){
                 let mut cnt = 0;
@@ -43,17 +41,15 @@ impl<'a> System<'a> for CombatSystem {
                 if cnt == 0 {
                     dmg = fight_round(chr, &Weapon{damage_min:1,damage_max:3}, mchr);
                 }
-                if dmg>0 {
-                    dmgs.push((ent,dmg));
-                }
+                dmgs.push((ent,dmg));
+                monster_damage+=dmg;
             }
         }
 
         for (_monster,_wantstofight,chr,weapon) in (&monsters,&wantstofight,&characters,&weapons).join(){
             for (_player,pchr, ent) in (&players,&characters,&entities).join(){
-                let dmg = fight_round(chr, weapon, pchr);
-                println!("monster attacked player: {}",dmg);
-                if dmg>0 {
+                if chr.life > monster_damage { // ensure monster is not dead
+                    let dmg = fight_round(chr, weapon, pchr);
                     dmgs.push((ent,dmg));
                 }
             }

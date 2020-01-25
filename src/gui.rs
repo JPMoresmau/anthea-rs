@@ -3,7 +3,7 @@ use rltk::{Console, Rltk, RGB, VirtualKeyCode};
 extern crate specs;
 use super::{
     Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State, Damage,
-    Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource, WantsToFight, Monster, WantsToFlee, InFight, Fled, CombatResult
+    Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource, WantsToFight, Monster, WantsToFlee, InFight, Fled, CombatResult, Dead
 };
 use specs::prelude::*;
 
@@ -341,6 +341,7 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
 
     let names= gs.ecs.read_storage::<Named>();
     let monsters= gs.ecs.read_storage::<Monster>();
+    let dead= gs.ecs.read_storage::<Dead>();
 
     if ofled.is_none(){
         if let Some(wizard) = owizard { 
@@ -351,10 +352,31 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
     let mut msgs = vec!();
     for(damage,character,entity) in (&damages,&characters, &entities).join(){
         if entity==*player_entity {
-            msgs.push(format!("You get hit for {} damage! You have {} life points left.",damage.damage,character.life));
+            if damage.damage>0{
+                msgs.push(format!("You get hit for {} damage! You have {} life points left.",damage.damage,character.life));
+            } else {
+                msgs.push("Pfew, no damage!".to_owned());
+            }
         } else {
             let name = &names.get(entity).expect("No name for monster").name;
-            msgs.push(format!("You hit {} for {} damage!",name,damage.damage));
+            if damage.damage>0{
+                msgs.push(format!("You hit {} for {} damage!",name,damage.damage));
+            } else {
+                msgs.push("You miss!".to_owned());
+            }
+        }
+    }
+    let mut player_dead = false;
+    let mut monster_dead = false;
+    for(_dead,entity) in (&dead, &entities).join(){
+        
+        if entity==*player_entity {
+            player_dead = true;
+            msgs.push(format!("You are dead!"));
+        } else {
+            monster_dead = true;
+            let name = &names.get(entity).expect("No name for monster").name;
+            msgs.push(format!("You killed {}",name));
         }
     }
     count+=msgs.len();
@@ -377,21 +399,12 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
 
 
     let mut rs = CombatResult::Continue;
-    if ofled.is_some(){
+    if player_dead || monster_dead {
+        rs=stop_combat(ctx, textx, y);
+    } else if ofled.is_some(){
         ctx.print_color(textx, y, RGB::named(rltk::GREEN), RGB::named(rltk::BLACK), "You manage to escape!");
-        ctx.print_color(textx, y+1 as i32+1, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "SPACE to continue");
-        match ctx.key {
-            None => (),
-            Some(key) => {
-                match key {
-                    VirtualKeyCode::Space => {
-                        rs = CombatResult::Stop;
-                    }
-                    _ => ()
-                }
-               
-            }
-        }
+        y+=1;
+        rs=stop_combat(ctx, textx, y);
     } else {
         let mut j=0;
         write_option(ctx, textx, y, j, "Attack");
@@ -432,6 +445,19 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
     }
     rs
 
+}
+
+fn stop_combat(ctx : &mut Rltk, textx: i32, y: i32) -> CombatResult{
+    ctx.print_color(textx, y as i32, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), "SPACE to continue");
+    match ctx.key {
+        None => CombatResult::Continue,
+        Some(key) => {
+            match key {
+                VirtualKeyCode::Space => CombatResult::Stop,
+                _ => CombatResult::Continue,
+            }   
+        },
+    }
 }
 
 fn write_option(ctx : &mut Rltk, textx: i32, y: i32, j: i32, option: &str){
