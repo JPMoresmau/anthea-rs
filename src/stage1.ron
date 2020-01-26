@@ -86,7 +86,7 @@ Stage (
         "scroll": (name:"An undecipherable scroll",position:(11,20)),
     },
     weapons: [
-        (name:"Sword",position:(34,23),damage:(1,6)),
+        (key:"sword",position:(34,23)),
     ],
     npcs: {
         "Peleus": (name:"Peleus, your brother",position:(26,6),
@@ -186,16 +186,8 @@ Stage (
             ]
         ),
     },
-    spells: {
-        "fear":(name:"Fear", description:"Causes ennemies to flee in panic"),
-    },
-    potions: {
-        "healing":(name:"Healing potion", effects:[(characteristic: "life", diff: 10)])
-    },
-    monsters: {
-        "rats":(name:"Small kitchen rats", character: (strength:3, dexterity:8, willpower: 3, intelligence:2, charisma:1, level: 1, xp:1, life: 4),
-            weapon:(name:"Bites", damage:(1,4)),attacks:["The rats bite you for {} damages","The rats scratch you for {} damages"],
-            misses:["None of the rats manages to hurt you"],actions:[SetFlag("cellarRats","killedRats")], rooms:["cellar"]
+    monsters: [
+        (key:"rats",actions:[SetFlag("cellarRats","killedRats")], rooms:["cellar"]
         ),
-    },
+    ],
 )

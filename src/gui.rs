@@ -2,7 +2,7 @@ extern crate rltk;
 use rltk::{Console, Rltk, RGB, VirtualKeyCode};
 extern crate specs;
 use super::{
-    Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State, Damage,
+    Character, Equipped, Item, ItemMap, Map, Named, Player, Position, RunState, Stage, State, Damage,Global,Potion,
     Weapon, Interact, WantToInteract, PlayerView, Journal, Wizard, PlayerResource, WantsToFight, Monster, WantsToFlee, InFight, Fled, CombatResult, Dead
 };
 use specs::prelude::*;
@@ -90,6 +90,7 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
     let ecs = &state.ecs;
     let characters = ecs.read_storage::<Character>();
     let players = ecs.read_storage::<Player>();
+    let global = ecs.fetch::<Global>();
     let stage = ecs.fetch::<Stage>();
     let mut y = 0;
     let pr = ecs.fetch::<PlayerResource>();
@@ -115,7 +116,8 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
             let equippeds = ecs.read_storage::<Equipped>();
             let items = ecs.read_storage::<Item>();
             let weapons = ecs.read_storage::<Weapon>();
-        
+            let potions = ecs.read_storage::<Potion>();
+
             if state.runstate == RunState::Dropping {
                 let entities = ecs.entities();
                 let mut itemmap = ecs.fetch_mut::<ItemMap>();
@@ -162,6 +164,55 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
                     j += 1;
                     y += 1;
                 }
+
+                for (entity, named, _equipped, _potion) in (&entities, &nameds, &equippeds, &potions).join() {
+                    ctx.set(
+                        51,
+                        y,
+                        RGB::named(rltk::YELLOW),
+                        RGB::named(rltk::BLACK),
+                        97 + j as u8,
+                    );
+                    ctx.print_color(
+                        53,
+                        y,
+                        RGB::named(rltk::GRAY),
+                        RGB::named(rltk::BLACK),
+                        &named.name,
+                    );
+                    itemmap.map.insert(j, entity);
+                    j += 1;
+                    y += 1;
+                }
+                 
+            } else if state.runstate == RunState::Using {
+                    let entities = ecs.entities();
+                    let mut itemmap = ecs.fetch_mut::<ItemMap>();
+                    itemmap.map.clear();
+                    let mut j = 0;
+            
+                    for (entity, named, _equipped, _weapon) in (&entities, &nameds, &equippeds, &potions).join()
+                    {
+                        ctx.set(
+                            51,
+                            y,
+                            RGB::named(rltk::YELLOW),
+                            RGB::named(rltk::BLACK),
+                            97 + j as u8,
+                        );
+                        ctx.print_color(
+                            53,
+                            y,
+                            RGB::named(rltk::GRAY),
+                            RGB::named(rltk::BLACK),
+                            &named.name,
+                        );
+                        itemmap.map.insert(j, entity);
+                        j += 1;
+                        y += 1;
+                    }
+            
+                    
             } else {
                 for (named, _equipped, _weapon) in (&nameds, &equippeds, &weapons).join() {
                     ctx.print_color(
@@ -179,6 +230,17 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
                         51,
                         y,
                         RGB::named(rltk::BLUE),
+                        RGB::named(rltk::BLACK),
+                        &named.name,
+                    );
+                    y += 1;
+                }
+
+                for (named, _equipped, _item) in (&nameds, &equippeds, &potions).join() {
+                    ctx.print_color(
+                        51,
+                        y,
+                        RGB::named(rltk::GRAY),
                         RGB::named(rltk::BLACK),
                         &named.name,
                     );
@@ -210,7 +272,7 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
             let wizards = ecs.read_storage::<Wizard>();
             for (_player,wizard) in (&players,&wizards).join(){
                 for spell in wizard.spells.iter() {
-                    let spell_struct=stage.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
+                    let spell_struct=global.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
                     let spell_desc=format!("{} ({})",spell_struct.name,spell_struct.description);
                     print_multiline(ctx, 51, &mut y, 28, vec!(&spell_desc));
                 }
@@ -250,6 +312,7 @@ fn draw_item(state: &State, ctx: &mut Rltk, y: &mut i32) {
     let named = ecs.read_storage::<Named>();
     let items = ecs.read_storage::<Item>();
     let weapons = ecs.read_storage::<Weapon>();
+    let potions = ecs.read_storage::<Potion>();
     let map = ecs.fetch::<Map>();
 
     for (ppos, _player) in (&positions, &players).join() {
@@ -270,6 +333,15 @@ fn draw_item(state: &State, ctx: &mut Rltk, y: &mut i32) {
                         1,
                         *y,
                         RGB::named(rltk::RED),
+                        RGB::named(rltk::BLACK),
+                        &full_text,
+                    );
+                    *y+=1;
+                } else if potions.contains(*ent){
+                    ctx.print_color(
+                        1,
+                        *y,
+                        RGB::named(rltk::GRAY),
                         RGB::named(rltk::BLACK),
                         &full_text,
                     );
@@ -326,7 +398,7 @@ fn draw_interact(state: &State, ctx: &mut Rltk, y: &mut i32) {
 pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
     let wizards = gs.ecs.read_storage::<Wizard>();
     let player_entity = gs.ecs.fetch::<Entity>();
-    let stage = gs.ecs.fetch::<Stage>();
+    let global = gs.ecs.fetch::<Global>();
     
     let owizard =  wizards.get(*player_entity)  ;
 
@@ -406,17 +478,18 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
         y+=1;
         rs=stop_combat(ctx, textx, y);
     } else {
-        let mut j=0;
-        write_option(ctx, textx, y, j, "Attack");
+        let mut option_idx=0;
+
+        write_option(ctx, textx, y, option_idx, "Attack");
         y+=1;
-        j+=1;
-        write_option(ctx, textx, y, j, "Flee");
+        option_idx+=1;
+        write_option(ctx, textx, y, option_idx, "Flee");
         if let Some(wizard) = owizard { 
             for spell in wizard.spells.iter() {
-                let spell_struct=stage.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
-                write_option(ctx, textx, y, j, &spell_struct.name );
+                let spell_struct=global.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
+                write_option(ctx, textx, y, option_idx, &spell_struct.name );
                 y+=1;
-                j+=1;
+                option_idx+=1;
             }
         }
 

@@ -1,4 +1,4 @@
-use super::{Rect, Character};
+use super::{Rect};
 use std::collections::HashMap;
 use serde::Deserialize;
 
@@ -9,13 +9,15 @@ pub struct Stage {
     pub start: String,
     pub doors: Vec<Door>,
     pub items: HashMap<String,StageItem>,
-    pub weapons: Vec<StageWeapon>,
+    #[serde(default)]
+    pub weapons: Vec<WeaponRef>,
     pub npcs: HashMap<String,StageNPC>,
     pub affordances: HashMap<String,StageAffordance>,
     pub quests: HashMap<String,String>,
-    pub spells: HashMap<String,Spell>,
-    pub potions: HashMap<String,StagePotion>,
-    pub monsters: HashMap<String,StageMonster>,
+    #[serde(default)]
+    pub potions: Vec<PotionRef>,
+    #[serde(default)]
+    pub monsters: Vec<MonsterRef>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -40,12 +42,17 @@ pub struct StageItem {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct StageWeapon {
-    pub name: String,
-    #[serde(default)]
+pub struct WeaponRef {
+    pub key: String,
     pub position: (i32, i32),
-    pub damage: (u32, u32),
 }
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct PotionRef {
+    pub key: String,
+    pub position: (i32, i32),
+}
+
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct StageNPC {
@@ -86,6 +93,12 @@ pub struct Interaction {
     pub after_text: String,
 }
 
+impl Interaction {
+    pub fn internal(action: Action) -> Interaction{
+        Interaction{conditions:Vec::new(), text:String::new(),actions:vec!(action),interaction_type:InteractionType::Automatic, after_text:String::new()}
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub enum Condition {
     IfFlag(String,String),
@@ -106,41 +119,16 @@ pub enum Action {
     LearnSpell(String, u32),
     PickupPotion(String),
     AddDoor(String,String,usize),
+    DrinkPotion(String),
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Spell {
-    pub name: String,
-    pub description: String,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct StagePotion {
-    pub name: String,
-    pub effects: Vec<Effect>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct Effect {
-    pub characteristic: String,
-    pub diff: i32,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct StageMonster {
-    pub name: String,
-    pub character: Character,
+pub struct MonsterRef {
+    pub key: String,
     #[serde(default)]
     pub items: Vec<StageItem>,
-    pub weapon: StageWeapon,
-    #[serde(default)]
-    pub attacks: Vec<String>,
-    #[serde(default)]
-    pub misses: Vec<String>,
     #[serde(default)]
     pub actions: Vec<Action>,
     #[serde(default)]
     pub rooms: Vec<String>,
 }
-
-

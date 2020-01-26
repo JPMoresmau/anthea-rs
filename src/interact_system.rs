@@ -1,7 +1,9 @@
 extern crate specs;
+
 use specs::prelude::*;
-use super::{Interact, Flags, Action, Player, Journal, Keyed, Equipped, Character,
+use super::{Interact, Flags, Action, Player, Journal, Keyed, Equipped, Character, Global, Named,Renderable,
      Wizard, PlayerResource, PlayerView, Potion, Stage, Map};
+use rltk::{RGB};
 
 pub struct InteractSystem {}
 
@@ -13,23 +15,31 @@ impl<'a> System<'a> for InteractSystem {
                         WriteExpect<'a, Journal>,
                         WriteExpect<'a, PlayerResource>,
                         ReadExpect<'a, Stage>,
+                        ReadExpect<'a, Global>,
                         WriteExpect<'a, Map>,
                         ReadStorage<'a, Player>,
-                        ReadStorage<'a, Keyed>,
-                        ReadStorage<'a, Potion>,
+                        WriteStorage<'a, Keyed>,
+                        WriteStorage<'a, Named>,
+                        WriteStorage<'a, Potion>,
                         WriteStorage<'a, Equipped>,
                         WriteStorage<'a, Character>,
                         WriteStorage<'a, Wizard>,
+                        WriteStorage<'a, Renderable>,
+                        
                         Entities<'a>,
                     );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (interacts,mut flags, mut journal, mut pr, stage, mut map, players, keyeds, potions, mut equipped, mut characters, mut wizards, entities) = data;
-
-            let mut ents = vec!();
-            for (i,ent) in (&interacts,&entities).join(){
-                //if pos.x!=player_pos.x || pos.y!=player_pos.y {
-                for act in i.interaction.actions.iter(){
+        let (interacts,mut flags, mut journal, mut pr, stage,global, mut map, players, mut keyeds,mut nameds, mut potions, mut equipped, mut characters, mut wizards, mut renderables, entities) = data;
+        
+        //let mut ents = vec!();
+        for i in interacts.join() {
+            //if pos.x!=player_pos.x || pos.y!=player_pos.y {
+            let mut actions = vec!();
+            i.interaction.actions.iter().for_each(|a| actions.push(a.clone()));
+            while !actions.is_empty(){
+                let mut new_actions = vec!();
+                for act in actions.iter(){
                     match act {
                         Action::SetFlag(quest, flag) => {
                             flags.set.insert((quest.to_owned(), flag.to_owned()));
@@ -43,10 +53,14 @@ impl<'a> System<'a> for InteractSystem {
                             pr.player_view=PlayerView::Diary;
                         },
                         Action::UseItem(item) => {
-                            for (key,entity) in (&keyeds,&entities).join(){
+                            let mut used_entities = Vec::new();
+                            for (key,entity,_equip) in (&keyeds,&entities,&equipped).join(){
                                 if *item == key.key{
-                                    equipped.remove(entity);
+                                    used_entities.push(entity);
                                 }
+                            }
+                            for used in used_entities {
+                                entities.delete(used).expect("Unable to delete ued item");
                             }
                         },
                         Action::RaiseXP(amount) => {
@@ -85,18 +99,43 @@ impl<'a> System<'a> for InteractSystem {
                             }
                         },
                         Action::PickupPotion(potion) => {
-                            for (_potion,key,entity) in (&potions, &keyeds,&entities).join(){
-                                if *potion == key.key{
-                                    equipped.insert(entity,Equipped{}).expect("Cannot equip potion");
-                                }
-                            }
+                            let p = global.potions.get(potion).unwrap_or_else(|| panic!("No potion for key {}",potion));
+                            let e = entities.create();
+                            nameds.insert(e,Named {
+                                name: p.name.clone(),
+                            }).expect("Cannot name potion");
+                            keyeds.insert(e,Keyed { key: potion.to_string() }).expect("Cannot key potion");
+                            potions.insert(e,Potion {
+                                effects: p.effects.clone(),
+                            }).expect("Cannot add potion");
+                            equipped.insert(e,Equipped{}).expect("Cannot equip potion");
+                            renderables.insert(e,
+                            Renderable {
+                                glyph: rltk::to_cp437('p'),
+                                fg: RGB::named(rltk::GRAY),
+                                bg: RGB::named(rltk::BLACK),
+                            }).expect("Cannot add renderable");
                         },
+                        Action::DrinkPotion(potion) => {
+                            println!("drink potion");
+                            let p = global.potions.get(potion).unwrap_or_else(|| panic!("No potion for key {}",potion));
+                            new_actions.push(Action::UseItem(potion.to_string()));
+                            for e in p.effects.iter() {
+                                new_actions.push(Action::UpdateCharacter(e.characteristic.to_string(),e.diff));
+                            }
+                        }
                         Action::AddDoor(room1,room2,width)=>{
                             map.add_door(&stage,room1,room2,*width);
                         },
                     };
                 }
-                ents.push(ent);
+                actions.clear();
+                actions.append(&mut new_actions);
+                println!("actions: {:?}", actions);
+            }
+               
+            
+            //ents.push(ent);
                 //}
             
            /* ents.iter().for_each(|e| {interacts.remove(*e);});
@@ -111,5 +150,6 @@ impl<'a> System<'a> for InteractSystem {
        
     }
 
+    
 }
 

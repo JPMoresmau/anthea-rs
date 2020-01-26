@@ -51,6 +51,7 @@ impl<'a> System<'a> for CombatSystem {
             for (_player,pchr, ent) in (&players,&characters,&entities).join(){
                 if chr.life > monster_damage { // ensure monster is not dead
                     let dmg = fight_round(chr, weapon, pchr);
+                    //println!("monster causes damage:{}",dmg);
                     dmgs.push((ent,dmg));
                 }
             }

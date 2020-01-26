@@ -15,6 +15,8 @@ mod player;
 pub use player::*;
 mod rect;
 pub use rect::*;
+mod global;
+pub use global::*;
 mod stage;
 pub use stage::*;
 mod components;
@@ -36,6 +38,7 @@ pub use dead_system::*;
 pub enum RunState {
     Running,
     Dropping,
+    Using,
     Paused,
     Combat,
 }
@@ -177,6 +180,12 @@ fn main() {
     gs.ecs.register::<Dead>();
     gs.ecs.register::<ActionHolder>();
 
+    let global_ron = include_str!("global.ron");
+    let global = match from_str(global_ron) {
+        Ok(x) => x,
+        Err(e) => panic!("Failed to load global: {}", e),
+    };
+
     let ron1 = include_str!("stage1.ron");
     let stage = match from_str(ron1) {
         Ok(x) => x,
@@ -185,15 +194,17 @@ fn main() {
     let mut map = Map::new_map(&stage);
 
     let (player_x, player_y) = stage.rooms[&stage.start].dimensions.center();
-    build_items(&mut gs.ecs, &stage, &mut map);
+    build_items(&mut gs.ecs, &stage, &mut map, &global);
     build_npcs(&mut gs.ecs, &stage, &mut map);
     build_affordances(&mut gs.ecs, &stage, &mut map);
-    build_potions(&mut gs.ecs, &stage);
+    build_potions(&mut gs.ecs, &stage, &global);
 
     let mut mmap = MonsterMap {
         map: HashMap::new(),
     };
-    build_monsters(&mut gs.ecs, &stage, &mut mmap);
+    build_monsters(&mut gs.ecs, &stage, &mut mmap, &global);
+
+    gs.ecs.insert(global);
     gs.ecs.insert(mmap);
 
     gs.ecs.insert(map);
@@ -243,7 +254,7 @@ fn main() {
     rltk::main_loop(context, gs);
 }
 
-fn build_items(ecs: &mut World, stage: &Stage, map: &mut Map) {
+fn build_items(ecs: &mut World, stage: &Stage, map: &mut Map, global: &Global) {
     for (key, item) in stage.items.iter() {
         let ent = ecs
             .create_entity()
@@ -267,18 +278,20 @@ fn build_items(ecs: &mut World, stage: &Stage, map: &mut Map) {
             .insert(ent);
     }
     for item in stage.weapons.iter() {
+        let w = global.weapons.get(&item.key).unwrap_or_else(|| panic!("No weapon for key {}",item.key));
         let ent = ecs
             .create_entity()
             .with(Position {
                 x: item.position.0,
                 y: item.position.1,
             })
+            .with(Keyed { key: item.key.clone() })
             .with(Weapon {
-                damage_min: item.damage.0,
-                damage_max: item.damage.1,
+                damage_min: w.damage.0,
+                damage_max: w.damage.1,
             })
             .with(Named {
-                name: format!("{} ({}-{})", item.name, item.damage.0, item.damage.1),
+                name: format!("{} ({}-{})", w.name, w.damage.0, w.damage.1),
             })
             .with(Renderable {
                 glyph: rltk::to_cp437('w'),
@@ -348,34 +361,45 @@ fn build_affordances(ecs: &mut World, stage: &Stage, map: &mut Map) {
     }
 }
 
-fn build_potions(ecs: &mut World, stage: &Stage) {
-    for (key, potion) in stage.potions.iter() {
-        ecs.create_entity()
-            .with(Named {
-                name: potion.name.clone(),
-            })
-            .with(Keyed { key: key.clone() })
-            .with(Potion {
-                effects: potion.effects.clone(),
-            })
-            .build();
+fn build_potions(ecs: &mut World, stage: &Stage, global: &Global) {
+    for potion in stage.potions.iter() {
+        build_potion(ecs, &potion.key, global);
     }
 }
 
-fn build_monsters(ecs: &mut World, stage: &Stage, mmap: &mut MonsterMap) {
-    for (key, monster) in stage.monsters.iter() {
+pub fn build_potion(ecs: &mut World, key: &str, global: &Global) -> Entity {
+    let p = global.potions.get(key).unwrap_or_else(|| panic!("No potion for key {}",key));
+    
+    ecs.create_entity()
+        .with(Named {
+            name: p.name.clone(),
+        })
+        .with(Keyed { key: key.to_string() })
+        .with(Potion {
+            effects: p.effects.clone(),
+        })
+        .with(Renderable {
+            glyph: rltk::to_cp437('p'),
+            fg: RGB::named(rltk::GRAY),
+            bg: RGB::named(rltk::BLACK),
+        })
+        .build()
+}
+
+fn build_monsters(ecs: &mut World, stage: &Stage, mmap: &mut MonsterMap, global: &Global) {
+    for monster in stage.monsters.iter() {
+        let m = global.monsters.get(&monster.key).unwrap_or_else(|| panic!("No monster for key {}",monster.key));
         for room in monster.rooms.iter() {
-            let ent = ecs
-                .create_entity()
+            let ent = ecs.create_entity()
                 .with(Named {
-                    name: monster.name.clone(),
+                    name: m.name.clone(),
                 })
-                .with(monster.character.clone())
+                .with(m.character.clone())
                 .with(Monster {})
-                .with(Keyed { key: key.clone() })
+                .with(Keyed { key: monster.key.clone() })
                 .with(Weapon {
-                    damage_min: monster.weapon.damage.0,
-                    damage_max: monster.weapon.damage.1,
+                    damage_min: m.weapon.damage.0,
+                    damage_max: m.weapon.damage.1,
                 })
                 .with(ActionHolder{actions:monster.actions.clone()})
                 .build();

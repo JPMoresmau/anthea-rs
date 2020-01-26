@@ -1,0 +1,17 @@
+Global (
+    spells: {
+        "fear":(name:"Fear", description:"Causes ennemies to flee in panic"),
+    },
+    potions: {
+        "healing":(name:"Healing potion", effects:[(characteristic: "life", diff: 10)])
+    },
+    monsters: {
+        "rats":(name:"Small kitchen rats", character: (strength:3, dexterity:8, willpower: 3, intelligence:2, charisma:1, level: 1, xp:1, life: 4),
+            weapon:(name:"Bites", damage:(1,4)),attacks:["The rats bite you for {} damages","The rats scratch you for {} damages"],
+            misses:["None of the rats manages to hurt you"]
+        ),
+    },
+    weapons: {
+        "sword":(name:"Sword",position:(34,23),damage:(1,6)),
+    },
+)

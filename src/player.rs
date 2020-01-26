@@ -1,5 +1,5 @@
 use super::{
-    ItemMap, Map, Named, Player, Position, RunState, State, TileType, Viewshed, WantToDrop,
+    ItemMap, Map, Named, Player, Position, RunState, State, TileType, Viewshed, WantToDrop, Action,
     WantToPickup, Interaction, InteractionType, Condition, Flags, Keyed, Equipped, Item, InteractionProvider, 
     Interact, WantToInteract, PlayerView, Journal, PlayerResource, MonsterMap, initiative, Character, WantsToFight, InFight
 };
@@ -42,6 +42,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) -> RunState {
                 let mut ifs = ecs.write_storage::<InFight>();
                 ifs.insert(*monsterent, InFight{}).expect("Could not add in fight monster");
                 if !init {
+                    //println!("monster has initiative");
                     let mut wtfs = ecs.write_storage::<WantsToFight>();
                     wtfs.insert(*monsterent, WantsToFight{}).expect("Could not add wants to fight to monster");
                 }
@@ -108,6 +109,18 @@ fn drop_item(ecs: &mut World, ix: i32) {
     itemmap.map.clear();
 }
 
+fn use_item(ecs: &mut World, ix: i32) {
+    let mut itemmap = ecs.fetch_mut::<ItemMap>();
+    if let Some(ent) = itemmap.map.get(&ix) {
+        if let Some(key) = ecs.read_storage::<Keyed>().get(*ent){
+            let mut interact = ecs.write_storage::<Interact>();
+            interact.insert(*ent, Interact {interaction:Interaction::internal(Action::DrinkPotion(key.key.clone()))})
+                .expect("Unable to intent use item");
+        }
+    }
+    itemmap.map.clear();
+}
+
 fn set_player_view(gs: &mut State, player_view: PlayerView){
     clear_interactions(&mut gs.ecs);
     let mut pr=gs.ecs.fetch_mut::<PlayerResource>();
@@ -157,6 +170,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
         None => return waiting_state(gs.runstate), // Nothing happened
         Some(key) => match gs.runstate {
             RunState::Dropping => drop_item(&mut gs.ecs, rltk::letter_to_option(key)),
+            RunState::Using => use_item(&mut gs.ecs, rltk::letter_to_option(key)),
             _ => match key {
                 VirtualKeyCode::Left => rs = try_move_player(-1, 0, &mut gs.ecs),
                 VirtualKeyCode::Numpad4 => rs = try_move_player(-1, 0, &mut gs.ecs),
@@ -177,6 +191,10 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
                     set_player_view(gs, PlayerView::Inventory);
                     rs = RunState::Dropping;
                 },
+                VirtualKeyCode::U => {
+                    set_player_view(gs, PlayerView::Inventory);
+                    rs = RunState::Using;
+                },
                 VirtualKeyCode::P => set_journal_entry(gs, JournalMove::Previous),
                 VirtualKeyCode::N => set_journal_entry(gs, JournalMove::Next),
                 VirtualKeyCode::L => set_journal_entry(gs, JournalMove::Last),
@@ -191,6 +209,7 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
 fn waiting_state(runstate: RunState) -> RunState {
     match runstate {
         RunState::Dropping => RunState::Dropping,
+        RunState::Using => RunState::Using,
         _ => RunState::Paused,
     }
 }
