@@ -207,7 +207,7 @@ fn valid_interaction(ecs: &World,interaction: &Interaction) -> bool {
             return false;
         }
     }
-    return true;
+    true
 }
 
 fn valid_condition(ecs: &World, condition: &Condition) -> bool {

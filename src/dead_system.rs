@@ -7,6 +7,7 @@ use specs::prelude::*;
 pub struct DeadSystem {}
 
 impl<'a> System<'a> for DeadSystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = (
         ReadStorage<'a, Dead>,
         ReadStorage<'a, Position>,
@@ -33,7 +34,7 @@ impl<'a> System<'a> for DeadSystem {
             }
         }
 
-        if dead_entities.len() > 0 {
+        if !dead_entities.is_empty() {
             {
                 let pos = positions.get(*player).expect("no position for player");
                 if let Some(r) = &map.tile(pos.x, pos.y).room {
@@ -46,7 +47,7 @@ impl<'a> System<'a> for DeadSystem {
             }
         }
         for interaction in interactions {
-            interact.insert(*player,Interact{interaction:interaction}).expect("Could not add interaction");
+            interact.insert(*player,Interact{interaction}).expect("Could not add interaction");
         }
     }
 }

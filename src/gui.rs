@@ -56,7 +56,7 @@ fn draw_position(state: &State, ctx: &mut Rltk, y: &mut i32)  {
             let room = stage
                 .rooms
                 .get(r)
-                .expect(&format!("no room for code {}!", r));
+                .unwrap_or_else(|| panic!("no room for code {}!", r));
             print_multiline(ctx, 1, y, 78, vec![&room.name, &room.description]);
         }
         //format!("x: {}, y: {}", pos.x, pos.y);
@@ -192,7 +192,7 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
             let j = ecs.fetch::<Journal>();
             let idx = j.current;
             let (quest,entry)=&j.entries[idx];
-            let quest_name = stage.quests.get(quest).expect(&format!("Cannot get quest name for {}", quest));
+            let quest_name = stage.quests.get(quest).unwrap_or_else(|| panic!("Cannot get quest name for {}", quest));
             if idx>0{
                 ctx.print(51,y,"(P)revious");
                 y+=1;
@@ -210,7 +210,7 @@ fn draw_player(state: &State, ctx: &mut Rltk) {
             let wizards = ecs.read_storage::<Wizard>();
             for (_player,wizard) in (&players,&wizards).join(){
                 for spell in wizard.spells.iter() {
-                    let spell_struct=stage.spells.get(spell).expect(&format!("no spell {}",spell));
+                    let spell_struct=stage.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
                     let spell_desc=format!("{} ({})",spell_struct.name,spell_struct.description);
                     print_multiline(ctx, 51, &mut y, 28, vec!(&spell_desc));
                 }
@@ -372,7 +372,7 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
         
         if entity==*player_entity {
             player_dead = true;
-            msgs.push(format!("You are dead!"));
+            msgs.push("You are dead!".to_string());
         } else {
             monster_dead = true;
             let name = &names.get(entity).expect("No name for monster").name;
@@ -413,34 +413,32 @@ pub fn draw_combat(gs : &State, ctx : &mut Rltk) -> CombatResult {
         write_option(ctx, textx, y, j, "Flee");
         if let Some(wizard) = owizard { 
             for spell in wizard.spells.iter() {
-                let spell_struct=stage.spells.get(spell).expect(&format!("no spell {}",spell));
+                let spell_struct=stage.spells.get(spell).unwrap_or_else(|| panic!("no spell {}", spell));
                 write_option(ctx, textx, y, j, &spell_struct.name );
                 y+=1;
                 j+=1;
             }
         }
 
-        match ctx.key {
-            Some(key) => {
-                let mut wantstofight = gs.ecs.write_storage::<WantsToFight>();
-                let selection = rltk::letter_to_option(key);
-                for m in monster_ents {
-                    wantstofight.insert(m,WantsToFight{}).expect("Cannot add fight");
-                }
-                match selection {
-                    0 => {
-                       wantstofight.insert(*player_entity,WantsToFight{}).expect("Cannot add fight");
-                    },
-                    1 => {
-                        let mut flee=gs.ecs.write_storage::<WantsToFlee>();
-                        flee.insert(*player_entity,WantsToFlee{}).expect("Cannot add flee");
-                    },
-                    _ => {
+        if let Some(key) = ctx.key {
+            let mut wantstofight = gs.ecs.write_storage::<WantsToFight>();
+            let selection = rltk::letter_to_option(key);
+            for m in monster_ents {
+                wantstofight.insert(m,WantsToFight{}).expect("Cannot add fight");
+            }
+            match selection {
+                0 => {
+                    wantstofight.insert(*player_entity,WantsToFight{}).expect("Cannot add fight");
+                },
+                1 => {
+                    let mut flee=gs.ecs.write_storage::<WantsToFlee>();
+                    flee.insert(*player_entity,WantsToFlee{}).expect("Cannot add flee");
+                },
+                _ => {
 
-                    }
                 }
-            },
-            _ => (),
+            }
+            
         }
     }
     rs
@@ -481,7 +479,7 @@ fn split(s: &str, width: usize) -> Vec<String> {
             if line.len() + sep.len() + cur.len()<=width {
                 line.push_str(&sep);
                 sep.clear();
-            } else if line.len()>0{
+            } else if !line.is_empty(){
                 r.push(line);
                 line = String::new();
                 sep.clear();
@@ -494,18 +492,17 @@ fn split(s: &str, width: usize) -> Vec<String> {
             cur.push(c);
         }
     }
-    if cur.len()>0{
+    if !cur.is_empty(){
         if line.len() + sep.len() + cur.len()<=width {
             line.push_str(&sep);
-        } else {
-            if line.len()>0{
-                r.push(line);
-                line = String::new();
-            }
+        } else if !line.is_empty(){
+            r.push(line);
+            line = String::new();
+            
         }
         line.push_str(&cur);
     }
-    if line.len()>0{
+    if !line.is_empty(){
         r.push(line);
     }
 

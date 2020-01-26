@@ -57,12 +57,12 @@ impl Map {
             map.apply_room_to_map(new_code, &new_room.dimensions);
         }
         for door in stage.doors.iter() {
-            map.add_door(stage, &door.room1, &door.room2, &door.width);
+            map.add_door(stage, &door.room1, &door.room2, door.width);
         }
         map
     }
 
-    pub fn add_door(&mut self, stage: &Stage, r1: &str, r2: &str, width: &usize){
+    pub fn add_door(&mut self, stage: &Stage, r1: &str, r2: &str, width: usize){
         let room1 = stage.rooms.get(r1).expect("no room");
         let room2 = stage.rooms.get(r2).expect("no room");
         
@@ -73,12 +73,12 @@ impl Map {
         }
     }
 
-    fn apply_room_to_map(&mut self, code: &String, room : &Rect) {
+    fn apply_room_to_map(&mut self, code: &str, room : &Rect) {
         for y in room.y1 +1 ..= room.y2 {
             for x in room.x1 + 1 ..= room.x2 {
                 let idx = self.xy_idx(x, y);
                 self.tiles[idx].tile_type = TileType::Floor;
-                self.tiles[idx].room = Some(code.clone());
+                self.tiles[idx].room = Some(code.to_string());
             }
         }
     }
@@ -101,16 +101,16 @@ impl Map {
         (x,(idx as i32-x)/self.width)
     }
 
-    fn apply_horizontal_door(&mut self, r1: &Rect, r2: &Rect, width : &usize) {
+    fn apply_horizontal_door(&mut self, r1: &Rect, r2: &Rect, width : usize) {
         let mut ys = vec!();
         for y in r1.y1+1 ..= r1.y2 {
             if y>r2.y1 && y<=r2.y2 {
                 ys.push(y);
             }
         }
-        while ys.len()>*width {
+        while ys.len()>width {
             ys.remove(0);
-            if ys.len()>*width {
+            if ys.len()>width {
                 ys.remove(ys.len()-1);
             }
         }
@@ -124,16 +124,16 @@ impl Map {
         }
     }
 
-    fn apply_vertical_door(&mut self, r1: &Rect, r2: &Rect, width : &usize) {
+    fn apply_vertical_door(&mut self, r1: &Rect, r2: &Rect, width : usize) {
         let mut xs = vec!();
         for x in r1.x1+1 ..= r1.x2 {
             if x>r2.x1 && x<=r2.x2 {
                 xs.push(x);
             }
         }
-        while xs.len()>*width {
+        while xs.len()>width {
             xs.remove(0);
-            if xs.len()>*width {
+            if xs.len()>width {
                 xs.remove(xs.len()-1);
             }
         }

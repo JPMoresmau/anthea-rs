@@ -5,6 +5,7 @@ use super::{WantToPickup,Position,Equipped,WantToDrop,Player,Map, PlayerResource
 pub struct PickupSystem {}
 
 impl<'a> System<'a> for PickupSystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = ( WriteStorage<'a, WantToPickup>,
                         WriteStorage<'a, WantToDrop>,
                         WriteStorage<'a, Position>,
@@ -33,7 +34,7 @@ impl<'a> System<'a> for PickupSystem {
 
             for (_drop,entity) in (&drops,&entities).join(){
                 equipped.remove(entity);
-                positions.insert(entity, Position{x:x,y:y}).expect("Cannot drop item");
+                positions.insert(entity, Position{x,y}).expect("Cannot drop item");
                 map.mut_tile(x,y).content.insert(entity);
                 changed=true;
             }

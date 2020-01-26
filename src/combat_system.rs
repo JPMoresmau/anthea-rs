@@ -1,12 +1,13 @@
 extern crate specs;
 use specs::prelude::*;
-use super::{Position, Player, Keyed, Equipped, Weapon, Character,Dead,
+use super::{Position, Player, Equipped, Weapon, Character,Dead,
      Wizard, InFight, Monster, WantsToFight, WantsToFlee,Map, Fled,fight_round,Damage};
 use rand::Rng;
 
 pub struct CombatSystem {}
 
 impl<'a> System<'a> for CombatSystem {
+    #[allow(clippy::type_complexity)]
     type SystemData = ( ReadExpect<'a, Map>,
                         WriteStorage<'a, Position>,
                         ReadStorage<'a, Player>,
@@ -55,7 +56,7 @@ impl<'a> System<'a> for CombatSystem {
             }
         }
 
-        if dmgs.len()>0 {
+        if !dmgs.is_empty() {
             damages.clear();
             for (ent,dmg) in dmgs.iter(){
                 damages.insert(*ent,Damage{damage:*dmg}).expect("Cannot add damage");
